@@ -1,2 +1,2 @@
 # ViReflow
-An elastically-scaling automated AWS pipeline for viral consensus sequence generation
+An elastically-scaling parallelized AWS pipeline for viral consensus sequence generation
