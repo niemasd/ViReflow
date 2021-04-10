@@ -247,3 +247,9 @@ if __name__ == "__main__":
     rf_file.write('val consensus = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
     rf_file.write('    cat {{pileup}} | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa {{out}} 1>&2\n')
     rf_file.write('"}\n\n')
+
+    # write main
+    rf_file.write('// Execute workflow\n')
+    rf_file.write('val Main = {\n')
+    rf_file.write('    ({{sorted_untrimmed_bam}}, {{sorted_trimmed_bam}}, {{pileup}}, {{variants}}, {{consensus}})\n')
+    rf_file.write('"}\n')
