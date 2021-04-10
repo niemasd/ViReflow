@@ -23,11 +23,11 @@ TOOL = {
     'ivar': {
         'docker_image':  'niemasd/ivar:latest',              # Docker image for iVar
         'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
-        'mem_trim':      '2*GiB',                            # Memory for trimming (TODO: benchmark to see what is actually needed)
+        'mem_trim':      '50*MiB',                           # Memory for trimming (takes 7 MB on demo)
         'cpu_variants':  1,                                  # Num CPUs for variant-calling (iVar is still single-threaded)
-        'mem_variants':  '1*GiB',                            # Memory for variant-calling (TODO: benchmark to see what is actually needed)
+        'mem_variants':  '20*MiB',                           # Memory for variant-calling (takes 1 MB on demo)
         'cpu_consensus': 1,                                  # Num CPUs for consensus-calling (iVar is still single-threaded)
-        'mem_consensus': '1*GiB',                            # Memory for consensus-calling (TODO: benchmark to see what is actually needed)
+        'mem_consensus': '20*MiB',                           # Memory for consensus-calling (takes 1 MB on demo)
     },
 
     'minimap2': {
@@ -35,7 +35,7 @@ TOOL = {
         'cpu_index':     1,                                  # Num CPUs for indexing reference genome (Minimap2 indexing doesn't benefit from more than 1 CPU for viral genomes)
         'mem_index':     '50*MiB',                           # Memory for indexing reference genome (Minimap2 Peak RSS to index the SARS-CoV-2 reference was 0.003 GB)
         'cpu_map':       32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem_map':       '4*GiB',                            # Memory for mapping reads (4 GiB should hopefully be fine)
+        'mem_map':       '100*MiB',                          # Memory for mapping reads (takes 30 MB on demo)
     },
 
     'minimap2_samtools': {
@@ -45,9 +45,9 @@ TOOL = {
     'samtools': {
         'docker_image':  'niemasd/samtools:latest',          # Docker image for samtools
         'cpu_sort':      32,                                 # Num CPUs for sorting BAM
-        'mem_sort':      '1*GiB',                            # Memory for sorting BAM (TODO: benchmark to see what is actually needed)
+        'mem_sort':      '100*MiB',                          # Memory for sorting BAM (takes 20 MB on demo)
         'cpu_pileup':    1,                                  # Num CPUs for generating pileup
-        'mem_pileup':    '1*GiB',                            # Memory for generating pileup (TODO: benchmark to see what is actually needed)
+        'mem_pileup':    '50*MiB',                           # Memory for generating pileup (takes 5 MB on demo)
     },
 }
 
