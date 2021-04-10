@@ -18,6 +18,13 @@ TOOL = {
         'docker_image':  'alpine:latest',                    # Base Docker image (Alpine)
         'cpu_wget':      1,                                  # Num CPUs for wget
         'mem_wget':      '50*MiB',                           # Memory for wget
+        'disk':          '5*GiB',                            # Overall, shouldn't need more than 5 GB of disk
+    },
+
+    'fastqc': {
+        'docker_image':  'niemasd/fastqc:latest',            # Docker image for fastqc
+        'cpu': 1,                                            # Num CPUs (just going to run single-threaded for memory reasons)
+        'mem': '2*GiB',                                      # Memory per FASTQ (Java allocates a ton of memory)
     },
 
     'ivar': {
@@ -48,6 +55,8 @@ TOOL = {
         'mem_sort':      '100*MiB',                          # Memory for sorting BAM (takes 20 MB on demo)
         'cpu_pileup':    1,                                  # Num CPUs for generating pileup
         'mem_pileup':    '50*MiB',                           # Memory for generating pileup (takes 5 MB on demo)
+        'cpu_depth':     1,                                  # Num CPUs for computing depth
+        'mem_depth':     '50*MiB',                           # Memory for computing depth (takes 4 MB on demo)
     },
 }
 
@@ -86,6 +95,8 @@ def parse_args():
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu_map'], help="Max Threads")
+    parser.add_argument('--include_fastqc', action="store_true", help="Include FastQC (skipped by default)")
+    parser.add_argument('--include_depth', action="store_true", help="Include Depth Calling (skipped by default)")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
@@ -97,14 +108,15 @@ def parse_args():
 if __name__ == "__main__":
     # parse user args and prepare run
     args = parse_args()
+    out_list = ['cp_sorted_untrimmed_bam', 'cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_consensus']
 
     # check max threads
     if args.max_threads < 1:
         stderr.write("Invalid maximum number of threads: %d\n" % args.max_threads); exit(1)
-    TOOL['minimap2']['cpu_map'] = args.max_threads
-    if TOOL['minimap2']['cpu_map'] <= 4:
-        TOOL['minimap2']['mem_map'] = '%d*GiB' % TOOL['minimap2']['cpu_map'] # for <= 4 CPUs, 1 GB per CPU should be sufficient
-    TOOL['samtools']['cpu_sort'] = args.max_threads
+    for k1 in TOOL:
+        for k2 in TOOL[k1]:
+            if k2.startswith('cpu_') and TOOL[k1][k2] > args.max_threads:
+                TOOL[k1][k2] = args.max_threads
 
     # check destination folder
     if not args.destination.lower().startswith('s3://'):
@@ -117,7 +129,7 @@ if __name__ == "__main__":
     else:
         rf_file = open(args.output, 'w')
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
-    rf_file.write('@requires(cpu := 1, mem := 1*GiB, disk := 5*GiB)\n')
+    rf_file.write('@requires(disk := %s)\n' % TOOL['base']['disk'])
     rf_file.write('val Main = {\n')
     rf_file.write('    files := make("$/files")\n')
 
@@ -224,7 +236,7 @@ if __name__ == "__main__":
     # map reads using Minimap2 and sort using samtools
     rf_file.write('    // Map reads using Minimap2 and sort using samtools\n')
     rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
-    rf_file.write('        minimap2 -t %d -a -x sr "{{ref_mmi}}" %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('{{%s}}' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+    rf_file.write('        minimap2 -t %d -a -x sr "{{ref_mmi}}" %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     rf_file.write('    "}\n')
     rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/sorted.untrimmed.bam")\n' % args.destination)
     rf_file.write('\n')
@@ -269,7 +281,29 @@ if __name__ == "__main__":
     rf_file.write('    cp_consensus := files.Copy(consensus, "%s/consensus.fas")\n' % args.destination)
     rf_file.write('\n')
 
+    # run FastQC (optional)
+    if args.include_fastqc:
+        out_list.append('cp_fastqc')
+        rf_file.write('    // Run FastQC\n')
+        rf_file.write('    fastqc := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['fastqc']['docker_image'], TOOL['fastqc']['mem'], TOOL['fastqc']['cpu']))
+        rf_file.write('        mkdir fastqc\n')
+        rf_file.write('        fastqc -o fastqc %s\n' % ' '.join('"{{%s}}"' % var for var,s3 in fqs))
+        rf_file.write('        zip -9 "{{out}}" fastqc/*\n')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_fastqc := files.Copy(fastqc, "%s/fastqc.zip")\n' % args.destination)
+        rf_file.write('\n')
+
+    # call depth (optional)
+    if args.include_depth:
+        out_list.append('cp_depth')
+        rf_file.write('    // Call depth from trimmed BAM\n')
+        rf_file.write('    depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_depth'], TOOL['samtools']['cpu_depth']))
+        rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "{{sorted_trimmed_bam}}" > "{{out}}"\n')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_depth := files.Copy(depth, "%s/depth.txt")\n' % args.destination)
+        rf_file.write('\n')
+
     # finish Main
     rf_file.write('    // Finish workflow\n')
-    rf_file.write('    (cp_sorted_untrimmed_bam, cp_sorted_trimmed_bam, cp_pileup, cp_variants, cp_consensus)\n')
+    rf_file.write('    (%s)\n' % ', '.join(out_list))
     rf_file.write('}\n')
