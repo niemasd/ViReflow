@@ -79,6 +79,7 @@ def parse_args():
 
     # use argparse to parse user arguments
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-d', '--destination', required=True, type=str, help="Destination for Results (s3 folder)")
     parser.add_argument('-rf', '--reference_fasta', required=True, type=str, help="Reference Genome Sequence (s3/http/https/ftp to FASTA)")
     parser.add_argument('-rm', '--reference_mmi', required=False, type=str, default=None, help="Reference Genome Minimap2 Index (s3 to MMI)")
     parser.add_argument('-rg', '--reference_gff', required=True, type=str, help="Reference Genome Annotation (s3/http/https/ftp to GFF3)")
@@ -104,6 +105,11 @@ if __name__ == "__main__":
     if TOOL['minimap2']['cpu_map'] <= 4:
         TOOL['minimap2']['mem_map'] = '%d*GiB' % TOOL['minimap2']['cpu_map'] # for <= 4 CPUs, 1 GB per CPU should be sufficient
     TOOL['samtools']['cpu_sort'] = args.max_threads
+
+    # check destination folder
+    if not args.destination.lower().startswith('s3://'):
+        stderr.write("Invalid output s3 directory: %s\n" % args.destination); exit(1)
+    args.destination = args.destination.rstrip('/')
 
     # handle output file
     if args.output == 'stdout':
@@ -249,6 +255,13 @@ if __name__ == "__main__":
     rf_file.write('        cat {{pileup}} | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa {{out}} 1>&2\n')
     rf_file.write('    "}\n\n')
 
-    # end Main
+    # finally, copy output files
+    rf_file.write('    // Copy results to destination folder\n')
+    rf_file.write('    files := make("$/files")\n')
+    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/sorted.untrimmed.bam")\n' % args.destination)
+    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/sorted.trimmed.bam")\n' % args.destination)
+    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/pileup.txt")\n' % args.destination)
+    rf_file.write('    cp_variants := files.Copy(variants, "%s/variants.tsv")\n' % args.destination)
+    rf_file.write('    cp_consensus := files.Copy(consensus, "%s/consensus.fas")\n' % args.destination)
     rf_file.write('    (sorted_untrimmed_bam, sorted_trimmed_bam, pileup, variants, consensus)\n')
     rf_file.write('}\n')
