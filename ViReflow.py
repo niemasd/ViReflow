@@ -25,9 +25,9 @@ TOOL = {
         'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
         'mem_trim':      '4*GiB',                            # Memory for trimming (TODO: benchmark to see what is actually needed)
         'cpu_variants':  1,                                  # Num CPUs for variant-calling (iVar is still single-threaded)
-        'mem_variants':  '4*GiB',                            # Memory for variant-calling (TODO: benchmark to see what is actually needed)
+        'mem_variants':  '8*GiB',                            # Memory for variant-calling (TODO: benchmark to see what is actually needed)
         'cpu_consensus': 1,                                  # Num CPUs for consensus-calling (iVar is still single-threaded)
-        'mem_consensus': '4*GiB',                            # Memory for consensus-calling (TODO: benchmark to see what is actually needed)
+        'mem_consensus': '8*GiB',                            # Memory for consensus-calling (TODO: benchmark to see what is actually needed)
     },
 
     'minimap2': {
@@ -118,6 +118,7 @@ if __name__ == "__main__":
         rf_file = open(args.output, 'w')
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
     rf_file.write('val Main = {\n')
+    rf_file.write('    files := make("$/files")\n')
 
     # handle input FASTQs
     fqs = list() # (Reflow variable, s3 path) tuples
@@ -223,7 +224,9 @@ if __name__ == "__main__":
     rf_file.write('    // Map reads using Minimap2 and sort using samtools\n')
     rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
     rf_file.write('        minimap2 -t %d -a -x sr {{ref_mmi}} %s | samtools sort --threads %d -o {{out}} 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('{{%s}}' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
-    rf_file.write('    "}\n\n')
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/sorted.untrimmed.bam")\n' % args.destination)
+    rf_file.write('\n')
 
     # trim reads using iVar
     rf_file.write('    // Trim reads using iVar\n')
@@ -235,33 +238,35 @@ if __name__ == "__main__":
     rf_file.write('    // Sort trimmed BAM\n')
     rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
     rf_file.write('        samtools sort --threads %d -o {{out}} {{trimmed_bam}} 1>&2\n' % TOOL['samtools']['cpu_sort'])
-    rf_file.write('    "}\n\n')
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/sorted.trimmed.bam")\n' % args.destination)
+    rf_file.write('\n')
 
     # generate pile-up from sorted trimmed BAM
     rf_file.write('    // Generate pile-up from sorted trimmed BAM\n')
     rf_file.write('    pileup := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
     rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference {{ref_fas}} {{sorted_trimmed_bam}} > {{out}}\n')
-    rf_file.write('    "}\n\n')
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/pileup.txt")\n' % args.destination)
+    rf_file.write('\n')
 
     # call variants from pile-up
     rf_file.write('    // Call variants from pile-up\n')
     rf_file.write('    variants := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
     rf_file.write('        cat {{pileup}} | ivar variants -r {{ref_fas}} -g {{ref_gff}} -p {{out}} -m 10\n')
-    rf_file.write('    "}\n\n')
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_variants := files.Copy(variants, "%s/variants.tsv")\n' % args.destination)
+    rf_file.write('\n')
 
     # call consensus from pile-up
     rf_file.write('    // Call consensus from pile-up\n')
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
     rf_file.write('        cat {{pileup}} | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa {{out}} 1>&2\n')
-    rf_file.write('    "}\n\n')
-
-    # finally, copy output files
-    rf_file.write('    // Copy results to destination folder\n')
-    rf_file.write('    files := make("$/files")\n')
-    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/sorted.untrimmed.bam")\n' % args.destination)
-    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/sorted.trimmed.bam")\n' % args.destination)
-    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/pileup.txt")\n' % args.destination)
-    rf_file.write('    cp_variants := files.Copy(variants, "%s/variants.tsv")\n' % args.destination)
+    rf_file.write('    "}\n')
     rf_file.write('    cp_consensus := files.Copy(consensus, "%s/consensus.fas")\n' % args.destination)
+    rf_file.write('\n')
+
+    # finish Main
+    rf_file.write('    // Finish workflow\n')
     rf_file.write('    (sorted_untrimmed_bam, sorted_trimmed_bam, pileup, variants, consensus)\n')
     rf_file.write('}\n')
