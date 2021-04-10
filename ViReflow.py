@@ -23,11 +23,11 @@ TOOL = {
     'ivar': {
         'docker_image':  'niemasd/ivar:latest',              # Docker image for iVar
         'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
-        'mem_trim':      '4*GiB',                            # Memory for trimming (TODO: benchmark to see what is actually needed)
+        'mem_trim':      '2*GiB',                            # Memory for trimming (TODO: benchmark to see what is actually needed)
         'cpu_variants':  1,                                  # Num CPUs for variant-calling (iVar is still single-threaded)
-        'mem_variants':  '8*GiB',                            # Memory for variant-calling (TODO: benchmark to see what is actually needed)
+        'mem_variants':  '1*GiB',                            # Memory for variant-calling (TODO: benchmark to see what is actually needed)
         'cpu_consensus': 1,                                  # Num CPUs for consensus-calling (iVar is still single-threaded)
-        'mem_consensus': '8*GiB',                            # Memory for consensus-calling (TODO: benchmark to see what is actually needed)
+        'mem_consensus': '1*GiB',                            # Memory for consensus-calling (TODO: benchmark to see what is actually needed)
     },
 
     'minimap2': {
@@ -45,9 +45,9 @@ TOOL = {
     'samtools': {
         'docker_image':  'niemasd/samtools:latest',          # Docker image for samtools
         'cpu_sort':      32,                                 # Num CPUs for sorting BAM
-        'mem_sort':      '4*GiB',                            # Memory for sorting BAM (TODO: benchmark to see what is actually needed)
+        'mem_sort':      '1*GiB',                            # Memory for sorting BAM (TODO: benchmark to see what is actually needed)
         'cpu_pileup':    1,                                  # Num CPUs for generating pileup
-        'mem_pileup':    '4*GiB',                            # Memory for generating pileup (TODO: benchmark to see what is actually needed)
+        'mem_pileup':    '1*GiB',                            # Memory for generating pileup (TODO: benchmark to see what is actually needed)
     },
 }
 
@@ -117,6 +117,7 @@ if __name__ == "__main__":
     else:
         rf_file = open(args.output, 'w')
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
+    rf_file.write('@requires(cpu := 1, mem := 1*GiB, disk := 5*GiB)\n')
     rf_file.write('val Main = {\n')
     rf_file.write('    files := make("$/files")\n')
 
@@ -153,7 +154,7 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % ref_fasta_url)
+        rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % ref_fasta_url)
         rf_file.write('    "}')
     rf_file.write('\n\n')
 
@@ -161,7 +162,7 @@ if __name__ == "__main__":
     if args.reference_mmi is None:
         rf_file.write('    // Create Minimap2 reference index\n')
         rf_file.write('    ref_mmi := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
-        rf_file.write('        minimap2 -t %d -d {{out}} {{ref_fas}} 1>&2\n' % TOOL['minimap2']['cpu_index'])
+        rf_file.write('        minimap2 -t %d -d "{{out}}" "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu_index'])
         rf_file.write('    "}')
     else:
         ref_mmi_lower = args.reference_mmi.lower()
@@ -178,7 +179,7 @@ if __name__ == "__main__":
                     rf_file.close(); remove(args.output)
                 exit(1)
             rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-            rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % args.reference_mmi)
+            rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_mmi)
             rf_file.write('    "}')
     rf_file.write('\n\n')
 
@@ -197,7 +198,7 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % args.reference_gff)
+        rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_gff)
         rf_file.write('    "}')
     rf_file.write('\n\n')
 
@@ -216,14 +217,14 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % args.primer_bed)
+        rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.primer_bed)
         rf_file.write('    "}')
     rf_file.write('\n\n')
 
     # map reads using Minimap2 and sort using samtools
     rf_file.write('    // Map reads using Minimap2 and sort using samtools\n')
     rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
-    rf_file.write('        minimap2 -t %d -a -x sr {{ref_mmi}} %s | samtools sort --threads %d -o {{out}} 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('{{%s}}' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+    rf_file.write('        minimap2 -t %d -a -x sr "{{ref_mmi}}" %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('{{%s}}' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     rf_file.write('    "}\n')
     rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/sorted.untrimmed.bam")\n' % args.destination)
     rf_file.write('\n')
@@ -231,13 +232,13 @@ if __name__ == "__main__":
     # trim reads using iVar
     rf_file.write('    // Trim reads using iVar\n')
     rf_file.write('    trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_trim'], TOOL['ivar']['cpu_trim']))
-    rf_file.write('        ivar trim -x 5 -e -i {{sorted_untrimmed_bam}} -b {{primer_bed}} -p trimmed 1>&2 && mv trimmed.bam {{out}} 1>&2\n')
+    rf_file.write('        ivar trim -x 5 -e -i "{{sorted_untrimmed_bam}}" -b "{{primer_bed}}" -p trimmed 1>&2 && mv trimmed.bam "{{out}}"\n')
     rf_file.write('    "}\n\n')
 
     # sort trimmed BAM
     rf_file.write('    // Sort trimmed BAM\n')
     rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
-    rf_file.write('        samtools sort --threads %d -o {{out}} {{trimmed_bam}} 1>&2\n' % TOOL['samtools']['cpu_sort'])
+    rf_file.write('        samtools sort --threads %d -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
     rf_file.write('    "}\n')
     rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/sorted.trimmed.bam")\n' % args.destination)
     rf_file.write('\n')
@@ -245,7 +246,7 @@ if __name__ == "__main__":
     # generate pile-up from sorted trimmed BAM
     rf_file.write('    // Generate pile-up from sorted trimmed BAM\n')
     rf_file.write('    pileup := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
-    rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference {{ref_fas}} {{sorted_trimmed_bam}} > {{out}}\n')
+    rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
     rf_file.write('    "}\n')
     rf_file.write('    cp_pileup := files.Copy(pileup, "%s/pileup.txt")\n' % args.destination)
     rf_file.write('\n')
@@ -253,7 +254,9 @@ if __name__ == "__main__":
     # call variants from pile-up
     rf_file.write('    // Call variants from pile-up\n')
     rf_file.write('    variants := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
-    rf_file.write('        cat {{pileup}} | ivar variants -r {{ref_fas}} -g {{ref_gff}} -p {{out}} -m 10\n')
+    rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
+    rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
+    rf_file.write('        mv tmp.tsv "{{out}}"\n')
     rf_file.write('    "}\n')
     rf_file.write('    cp_variants := files.Copy(variants, "%s/variants.tsv")\n' % args.destination)
     rf_file.write('\n')
@@ -261,12 +264,12 @@ if __name__ == "__main__":
     # call consensus from pile-up
     rf_file.write('    // Call consensus from pile-up\n')
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
-    rf_file.write('        cat {{pileup}} | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa {{out}} 1>&2\n')
+    rf_file.write('        cat "{{pileup}}" | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa "{{out}}" 1>&2\n')
     rf_file.write('    "}\n')
     rf_file.write('    cp_consensus := files.Copy(consensus, "%s/consensus.fas")\n' % args.destination)
     rf_file.write('\n')
 
     # finish Main
     rf_file.write('    // Finish workflow\n')
-    rf_file.write('    (sorted_untrimmed_bam, sorted_trimmed_bam, pileup, variants, consensus)\n')
+    rf_file.write('    (cp_sorted_untrimmed_bam, cp_sorted_trimmed_bam, cp_pileup, cp_variants, cp_consensus)\n')
     rf_file.write('}\n')
