@@ -110,7 +110,8 @@ if __name__ == "__main__":
         from sys import stdout as rf_file
     else:
         rf_file = open(args.output, 'w')
-    rf_file.write('// Created using ViReflow %s\n\n' % VERSION)
+    rf_file.write('// Created using ViReflow %s\n' % VERSION)
+    rf_file.write('val Main = {\n')
 
     # handle input FASTQs
     fqs = list() # (Reflow variable, s3 path) tuples
@@ -121,15 +122,15 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         fqs.append(('fq%d' % (i+1), fq))
-    rf_file.write('// Use the following FASTQ s3 path(s)\n')
+    rf_file.write('    // Use the following FASTQ s3 path(s)\n')
     for tup in fqs:
-        rf_file.write('val %s = file("%s")\n' % tup)
+        rf_file.write('    %s := file("%s")\n' % tup)
     rf_file.write('\n')
 
     # handle reference sequence
     ref_fas_lower = args.reference_fasta.lower()
-    rf_file.write('// Use reference FASTA file: %s\n' % args.reference_fasta)
-    rf_file.write('val ref_fas = ')
+    rf_file.write('    // Use reference FASTA file: %s\n' % args.reference_fasta)
+    rf_file.write('    ref_fas := ')
     if ref_fas_lower.startswith('s3://'): # Amazon S3 path
         rf_file.write('file("%s")' % args.reference_fasta)
     else:
@@ -145,20 +146,20 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('    wget -O {{out}} "%s" 1>&2\n' % ref_fasta_url)
-        rf_file.write('"}')
+        rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % ref_fasta_url)
+        rf_file.write('    "}')
     rf_file.write('\n\n')
 
     # handle reference index
     if args.reference_mmi is None:
-        rf_file.write('// Create Minimap2 reference index\n')
-        rf_file.write('val ref_mmi = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
-        rf_file.write('    minimap2 -t %d -d {{out}} {{ref_fas}} 1>&2\n' % TOOL['minimap2']['cpu_index'])
-        rf_file.write('"}')
+        rf_file.write('    // Create Minimap2 reference index\n')
+        rf_file.write('    ref_mmi := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
+        rf_file.write('        minimap2 -t %d -d {{out}} {{ref_fas}} 1>&2\n' % TOOL['minimap2']['cpu_index'])
+        rf_file.write('    "}')
     else:
         ref_mmi_lower = args.reference_mmi.lower()
-        rf_file.write('// Use existing Minimap2 reference index: %s\n' % args.reference_mmi)
-        rf_file.write('val ref_mmi = ')
+        rf_file.write('    // Use existing Minimap2 reference index: %s\n' % args.reference_mmi)
+        rf_file.write('    ref_mmi := ')
         if ref_mmi_lower.startswith('s3://'): # Amazon S3 path
             rf_file.write('file("%s")' % args.reference_mmi)
         else:
@@ -170,14 +171,14 @@ if __name__ == "__main__":
                     rf_file.close(); remove(args.output)
                 exit(1)
             rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-            rf_file.write('    wget -O {{out}} "%s" 1>&2\n' % args.reference_mmi)
-            rf_file.write('"}')
+            rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % args.reference_mmi)
+            rf_file.write('    "}')
     rf_file.write('\n\n')
 
     # handle reference annotation
     ref_gff_lower = args.reference_gff.lower()
-    rf_file.write('// Use reference GFF3 file: %s\n' % args.reference_gff)
-    rf_file.write('val ref_gff = ')
+    rf_file.write('    // Use reference GFF3 file: %s\n' % args.reference_gff)
+    rf_file.write('    ref_gff := ')
     if ref_gff_lower.startswith('s3://'): # Amazon S3 path
         rf_file.write('file("%s")' % args.reference_gff)
     else:
@@ -189,14 +190,14 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('    wget -O {{out}} "%s" 1>&2\n' % args.reference_gff)
-        rf_file.write('"}')
+        rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % args.reference_gff)
+        rf_file.write('    "}')
     rf_file.write('\n\n')
 
     # handle primer BED
     primer_bed_lower = args.primer_bed.lower()
-    rf_file.write('// Use primer BED file: %s\n' % args.primer_bed)
-    rf_file.write('val primer_bed = ')
+    rf_file.write('    // Use primer BED file: %s\n' % args.primer_bed)
+    rf_file.write('    primer_bed := ')
     if primer_bed_lower.startswith('s3://'): # Amazon S3 path
         rf_file.write('file("%s")' % args.primer_bed)
     else:
@@ -208,48 +209,46 @@ if __name__ == "__main__":
                 rf_file.close(); remove(args.output)
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('    wget -O {{out}} "%s" 1>&2\n' % args.primer_bed)
-        rf_file.write('"}')
+        rf_file.write('        wget -O {{out}} "%s" 1>&2\n' % args.primer_bed)
+        rf_file.write('    "}')
     rf_file.write('\n\n')
 
     # map reads using Minimap2 and sort using samtools
-    rf_file.write('// Map reads using Minimap2 and sort using samtools\n')
-    rf_file.write('val sorted_untrimmed_bam = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
-    rf_file.write('    minimap2 -t %d -a -x sr {{ref_mmi}} %s | samtools sort --threads %d -o {{out}} 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('{{%s}}' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
-    rf_file.write('"}\n\n')
+    rf_file.write('    // Map reads using Minimap2 and sort using samtools\n')
+    rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
+    rf_file.write('        minimap2 -t %d -a -x sr {{ref_mmi}} %s | samtools sort --threads %d -o {{out}} 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('{{%s}}' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+    rf_file.write('    "}\n\n')
 
     # trim reads using iVar
-    rf_file.write('// Trim reads using iVar\n')
-    rf_file.write('val trimmed_bam = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_trim'], TOOL['ivar']['cpu_trim']))
-    rf_file.write('    ivar trim -x 5 -e -i {{sorted_untrimmed_bam}} -b {{primers_bed}} -p trimmed 1>&2 && mv trimmed.bam {{out}} 1>&2\n')
-    rf_file.write('"}\n\n')
+    rf_file.write('    // Trim reads using iVar\n')
+    rf_file.write('    trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_trim'], TOOL['ivar']['cpu_trim']))
+    rf_file.write('        ivar trim -x 5 -e -i {{sorted_untrimmed_bam}} -b {{primer_bed}} -p trimmed 1>&2 && mv trimmed.bam {{out}} 1>&2\n')
+    rf_file.write('    "}\n\n')
 
     # sort trimmed BAM
-    rf_file.write('// Sort trimmed BAM\n')
-    rf_file.write('val sorted_trimmed_bam = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
-    rf_file.write('    samtools sort --threads %d -o {{out}} {{trimmed_bam}} 1>&2\n' % TOOL['samtools']['cpu_sort'])
-    rf_file.write('"}\n\n')
+    rf_file.write('    // Sort trimmed BAM\n')
+    rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
+    rf_file.write('        samtools sort --threads %d -o {{out}} {{trimmed_bam}} 1>&2\n' % TOOL['samtools']['cpu_sort'])
+    rf_file.write('    "}\n\n')
 
     # generate pile-up from sorted trimmed BAM
-    rf_file.write('// Generate pile-up from sorted trimmed BAM\n')
-    rf_file.write('val pileup = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
-    rf_file.write('    samtools mpileup -A -aa -d 0 -Q 0 --reference {{ref_fas}} {{sorted_trimmed_bam}} > {{out}}\n')
-    rf_file.write('"}\n\n')
+    rf_file.write('    // Generate pile-up from sorted trimmed BAM\n')
+    rf_file.write('    pileup := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
+    rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference {{ref_fas}} {{sorted_trimmed_bam}} > {{out}}\n')
+    rf_file.write('    "}\n\n')
 
     # call variants from pile-up
-    rf_file.write('// Call variants from pile-up\n')
-    rf_file.write('val variants = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
-    rf_file.write('    cat {{pileup}} | ivar variants -r {{ref_fas}} -g {{ref_gff}} -p {{out}} -m 10\n')
-    rf_file.write('"}\n\n')
+    rf_file.write('    // Call variants from pile-up\n')
+    rf_file.write('    variants := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
+    rf_file.write('        cat {{pileup}} | ivar variants -r {{ref_fas}} -g {{ref_gff}} -p {{out}} -m 10\n')
+    rf_file.write('    "}\n\n')
 
     # call consensus from pile-up
-    rf_file.write('// Call consensus from pile-up\n')
-    rf_file.write('val consensus = exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
-    rf_file.write('    cat {{pileup}} | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa {{out}} 1>&2\n')
-    rf_file.write('"}\n\n')
+    rf_file.write('    // Call consensus from pile-up\n')
+    rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
+    rf_file.write('        cat {{pileup}} | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa {{out}} 1>&2\n')
+    rf_file.write('    "}\n\n')
 
-    # write main
-    rf_file.write('// Execute workflow\n')
-    rf_file.write('val Main = {\n')
-    rf_file.write('    ({{sorted_untrimmed_bam}}, {{sorted_trimmed_bam}}, {{pileup}}, {{variants}}, {{consensus}})\n')
-    rf_file.write('"}\n')
+    # end Main
+    rf_file.write('    (sorted_untrimmed_bam, sorted_trimmed_bam, pileup, variants, consensus)\n')
+    rf_file.write('}\n')
