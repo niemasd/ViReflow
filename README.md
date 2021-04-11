@@ -71,3 +71,16 @@ By default, ViReflow does not run FastQC: the Java Virtual Machine (JVM) does no
 
 ### Include Depth Calculation (`--include_depth`)
 ViReflow can optionally calculate depth from the trimmed mapped reads. This step is optional because not all users desire the depth calculations, but because (1) it will be executed in parallel to variant and consensus calling, and (2) `samtools depth` does not require significant additional computational resources/runtime, it is generally recommended to include.
+
+### Update ViReflow (`-u/--update`)
+Using the `-u/--update` argument, the user can update ViReflow to the newest release version. If the user chooses to do this, the user does not need to provide any of the other arguments, e.g. the following:
+
+```bash
+ViReflow.py -u
+```
+
+If the user has installed ViReflow globally by placing [`ViReflow.py`](ViReflow.py) in a global directory (e.g. `/usr/local/bin`), updating ViReflow may require superuser access, e.g. the following:
+
+```bash
+sudo ViReflow.py -u
+```
