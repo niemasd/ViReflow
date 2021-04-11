@@ -167,7 +167,9 @@ if __name__ == "__main__":
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % ref_fasta_url)
-        rf_file.write('    "}')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_ref_fas := files.Copy(ref_fas, "%s/reference.fas")' % args.destination)
+        out_list.append('cp_ref_fas')
     rf_file.write('\n\n')
 
     # handle reference index
@@ -175,7 +177,9 @@ if __name__ == "__main__":
         rf_file.write('    // Create Minimap2 reference index\n')
         rf_file.write('    ref_mmi := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
         rf_file.write('        minimap2 -t %d -d "{{out}}" "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu_index'])
-        rf_file.write('    "}')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/reference.mmi")' % args.destination)
+        out_list.append('cp_ref_mmi')
     else:
         ref_mmi_lower = args.reference_mmi.lower()
         rf_file.write('    // Use existing Minimap2 reference index: %s\n' % args.reference_mmi)
@@ -192,7 +196,9 @@ if __name__ == "__main__":
                 exit(1)
             rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
             rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_mmi)
-            rf_file.write('    "}')
+            rf_file.write('    "}\n')
+            rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/reference.mmi")' % args.destination)
+            out_list.append('cp_ref_mmi')
     rf_file.write('\n\n')
 
     # handle reference annotation
@@ -211,7 +217,9 @@ if __name__ == "__main__":
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_gff)
-        rf_file.write('    "}')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_ref_gff := files.Copy(ref_gff, "%s/reference.gff")' % args.destination)
+        out_list.append('cp_ref_gff')
     rf_file.write('\n\n')
 
     # handle primer BED
@@ -230,7 +238,9 @@ if __name__ == "__main__":
             exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.primer_bed)
-        rf_file.write('    "}')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_primer_bed := files.Copy(primer_bed, "%s/primers.bed")' % args.destination)
+        out_list.append('cp_primer_bed')
     rf_file.write('\n\n')
 
     # map reads using Minimap2 and sort using samtools
