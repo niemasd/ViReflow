@@ -1,15 +1,22 @@
 # ViReflow
-ViReflow is a tool for constructing elastically-scaling parallelized automated AWS pipelines for viral consensus sequence generation. Given sequence data from a viral sample as well as information about the reference genome and primers, ViReflow generates a [Reflow](https://github.com/grailbio/reflow) file that contains all steps of the workflow, including AWS instance specifications. Because ViReflow is intended to be used with Reflow, the workflows that are developed by ViReflow automatically distribute independent tasks to be run in parallel as well as elastically scale AWS instances based on each individual step of the workflow.
+ViReflow is a tool for constructing elastically-scaling parallelized automated AWS pipelines for viral consensus sequence generation. Given sequence data from a viral sample as well as information about the reference genome and primers, ViReflow generates a [Reflow](https://github.com/grailbio/reflow) file that contains all steps of the workflow, including AWS instance specifications. Because ViReflow is intended to be used with Reflow, the workflows that are developed by ViReflow automatically distribute independent tasks to be run in parallel as well as elastically scale AWS instances based on each individual step of the workflow. ViReflow makes use of compact minimal Docker images for each step of the viral analysis workflow, details about which can be found in the [Niema-Docker](https://github.com/Niema-Docker) GitHub organization.
 
 ## Workflow Summary
 The workflows produced by ViReflow have the following steps:
 * Map the reads using [Minimap2](https://github.com/lh3/minimap2)
+    * Uses the [`niemasd/minimap2_samtools`](https://hub.docker.com/repository/docker/niemasd/minimap2_samtools) Docker image
 * Trim the mapped reads using [iVar](https://github.com/andersen-lab/ivar)
+    * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
 * Generate a pile-up from the trimmed mapped reads using [samtools](http://www.htslib.org/)
+    * Uses the [`niemasd/samtools`](https://hub.docker.com/repository/docker/niemasd/samtools) Docker image
 * Call variants from the pile-up using [iVar](https://github.com/andersen-lab/ivar)
+    * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
 * Call a consensus sequence from the pile-up using [iVar](https://github.com/andersen-lab/ivar)
+    * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
 * Perform quality control on the raw reads using [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) (optional, not recommended)
+    * Uses the [`niemasd/fastqc`](https://hub.docker.com/repository/docker/niemasd/fastqc) Docker image
 * Calculate depth from the trimmed mapped reads using [samtools](http://www.htslib.org/) (optional, recommended)
+    * Uses the [`niemasd/samtools`](https://hub.docker.com/repository/docker/niemasd/samtools) Docker image
 
 ## Installation
 ViReflow is written in Python 3. You can simply download [ViReflow.py](ViReflow.py) to your machine and make it executable:
