@@ -84,3 +84,25 @@ If the user has installed ViReflow globally by placing [`ViReflow.py`](ViReflow.
 ```bash
 sudo ViReflow.py -u
 ```
+
+## Example Usage
+We have provided [demo files](demo), and ViReflow can be executed as follows:
+
+```bash
+ViReflow.py -rf s3://vireflow-demo/NC_045512.2.fas              \ # specify reference genome sequence
+            -rm s3://vireflow-demo/NC_045512.2.fas.mmi          \ # specify reference genome Minimap2 index
+            -rg s3://vireflow-demo/NC_045512.2.gff3             \ # specify reference genome annotation
+            -p s3://vireflow-demo/sarscov2_v2_primers_swift.bed \ # specify primer BED
+            -d s3://vireflow-demo/results_all_s3                \ # specify result destination directory
+            --include_depth                                     \ # include depth calculation
+            -o all_s3.rf                                        \ # specify output Reflow file
+            -mt 2                                               \ # use at most 2 threads in any given step
+            s3://vireflow-demo/test_R1.fastq                    \ # first FASTQ file
+            s3://vireflow-demo/test_R2.fastq                    \ # second FASTQ file
+```
+
+This will result in the creation of a file called `all_s3.rf`, which is the Reflow workflow file. Assuming Reflow is properly installed and configured, the workflow can now be run as follows:
+
+```bash
+reflow run all_s3.rf
+```
