@@ -95,8 +95,8 @@ def parse_args():
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu_map'], help="Max Threads")
-    parser.add_argument('--include_fastqc', action="store_true", help="Include FastQC (skipped by default)")
-    parser.add_argument('--include_depth', action="store_true", help="Include Depth Calling (skipped by default)")
+    parser.add_argument('--include_fastqc', action="store_true", help="Include FastQC")
+    parser.add_argument('--include_depth', action="store_true", help="Include Depth Calling")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         stderr.write("Invalid maximum number of threads: %d\n" % args.max_threads); exit(1)
     for k1 in TOOL:
         for k2 in TOOL[k1]:
-            if k2.startswith('cpu_') and TOOL[k1][k2] > args.max_threads:
+            if k2.startswith('cpu_') and TOOL[k1][k2] != 1: # some tools only run single-threaded
                 TOOL[k1][k2] = args.max_threads
 
     # check destination folder
