@@ -113,10 +113,3 @@ This will result in the creation of a file called `all_s3.rf`, which is the Refl
 ```bash
 reflow run all_s3.rf
 ```
-
-### *Specifying Reference Genome Sequence FASTA via HTTP/HTTPS/FTP URL*
-In the example usage, the reference genome sequence (FASTA) was specified via S3 bucket path, which is strongly recommended for the sake of speed. However, the user can choose to specify the reference genome sequence via HTTP/HTTPS/FTP URL:
-
-```bash
-ViReflow.py -rf https://raw.githubusercontent.com/niemasd/ViReflow/main/demo/NC_045512.2.fas ...           
-```
