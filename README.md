@@ -55,31 +55,31 @@ optional arguments:
   -u, --update                                             Update ViReflow (default: False)
 ```
 
-### Destination (`-d/--destination`)
+### *Destination (`-d/--destination`)*
 Using the `-d/--destination` argument, the user must specify the destination folder for the results of the workflow run on this sample. The destination must be an `s3` path (e.g. `s3://my_s3_bucket/current_sample/`).
 
-### Reference Genome Sequence FASTA (`-rf/--reference_fasta`)
+### *Reference Genome Sequence FASTA (`-rf/--reference_fasta`)*
 Using the `-rf/--reference_fasta` argument, the user must specify the viral reference genome sequence (FASTA format) to use in this analysis. The user can specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.fas`), or alternatively, the user can specify a GenBank accession number (e.g. `NC_045512.2`), and ViReflow will download the reference genome automatically.
 
-### Reference Genome Minimap2 Index (`-rm/--reference_mmi`)
+### *Reference Genome Minimap2 Index (`-rm/--reference_mmi`)*
 Using the `-rm/--reference_mmi` argument, in order to avoid recomputation, the user can optionally specify the Minimap2 index file (MMI format) constructed from the reference genome sequence FASTA specified by the user via the `-rf/--reference_fasta` argument. The Minimap2 index must be an `s3` path (e.g. `s3://my_s3_bucket/reference.mmi`). If a Minimap2 index is not provided (i.e., the `-rm/--reference_mmi` argument is not used), ViReflow will index the user-provided reference genome automatically.
 
-### Reference Genome Annotation GFF (`-rg/--reference_gff`)
+### *Reference Genome Annotation GFF (`-rg/--reference_gff`)*
 Using the `-rg/--reference_gff` argument, the user must specify the viral genome annotation (GFF3 format) to use in this analysis. The user must specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.gff`).
 
-### Primer BED (`-p/--primer_bed`)
+### *Primer BED (`-p/--primer_bed`)*
 Using the `-p/--primer_bed` argument, the user must specify the primer file (BED format) to use in this analysis. The user must specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.bed`).
 
-### Output RF File (`-o/--output`)
+### *Output RF File (`-o/--output`)*
 Using the `-o/--output` argument, the user can optionally specify the local file path to which ViReflow should write the output ReFlow workflow file for this analysis. If an output file path is not provided (i.e., the `-o/--output` argument is not used), ViReflow will print the contents of the output ReFlow workflow file to standard output.
 
-### Include FastQC Execution (`--include_fastqc`)
+### *Include FastQC Execution (`--include_fastqc`)*
 By default, ViReflow does not run FastQC: the Java Virtual Machine (JVM) does not play very nicely with AWS, and an excessively large AWS instance will need to be used to run FastQC in order to accommodate the maximum memory allocation pool for the JVM. This will result in a significant increase in per-hour AWS costs when running the workflow. We highly recommend not including FastQC in the ViReflow workflow, and instead, just running FastQC separately. If the user absolutely wants to include FastQC in the ViReflow workflow, the user can use the `--include_fastqc` argument.
 
-### Include Depth Calculation (`--include_depth`)
+### *Include Depth Calculation (`--include_depth`)*
 ViReflow can optionally calculate depth from the trimmed mapped reads. This step is optional because not all users desire the depth calculations, but because (1) it will be executed in parallel to variant and consensus calling, and (2) `samtools depth` does not require significant additional computational resources/runtime, it is generally recommended to include.
 
-### Update ViReflow (`-u/--update`)
+### *Update ViReflow (`-u/--update`)*
 Using the `-u/--update` argument, the user can update ViReflow to the newest release version. If the user chooses to do this, the user does not need to provide any of the other arguments, e.g. the following:
 
 ```bash
@@ -105,11 +105,27 @@ ViReflow.py -rf s3://vireflow-demo/NC_045512.2.fas              \ # specify refe
             -o all_s3.rf                                        \ # specify output Reflow file
             -mt 2                                               \ # use at most 2 threads in any given step
             s3://vireflow-demo/test_R1.fastq                    \ # first FASTQ file
-            s3://vireflow-demo/test_R2.fastq                    \ # second FASTQ file
+            s3://vireflow-demo/test_R2.fastq                      # second FASTQ file
 ```
 
 This will result in the creation of a file called `all_s3.rf`, which is the Reflow workflow file. Assuming Reflow is properly installed and configured, the workflow can now be run as follows:
 
 ```bash
 reflow run all_s3.rf
+```
+
+### *Specifying Reference Genome Sequence FASTA via HTTP/HTTPS/FTP URL*
+In the example usage, the reference genome sequence (FASTA) was specified via S3 bucket path, which is strongly recommended for the sake of speed. However, the user can choose to specify the reference genome sequence via HTTP/HTTPS/FTP URL:
+
+```bash
+ViReflow.py -rf https://raw.githubusercontent.com/niemasd/ViReflow/main/demo/NC_045512.2.fas \ # HTTPS URL to reference genome sequence
+            -rm s3://vireflow-demo/NC_045512.2.fas.mmi          \
+            -rg s3://vireflow-demo/NC_045512.2.gff3             \
+            -p s3://vireflow-demo/sarscov2_v2_primers_swift.bed \
+            -d s3://vireflow-demo/results_all_s3                \
+            --include_depth                                     \
+            -o all_s3.rf                                        \
+            -mt 2                                               \
+            s3://vireflow-demo/test_R1.fastq                    \
+            s3://vireflow-demo/test_R2.fastq                    
 ```
