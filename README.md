@@ -118,14 +118,5 @@ reflow run all_s3.rf
 In the example usage, the reference genome sequence (FASTA) was specified via S3 bucket path, which is strongly recommended for the sake of speed. However, the user can choose to specify the reference genome sequence via HTTP/HTTPS/FTP URL:
 
 ```bash
-ViReflow.py -rf https://raw.githubusercontent.com/niemasd/ViReflow/main/demo/NC_045512.2.fas \ # HTTPS URL to reference genome sequence
-            -rm s3://vireflow-demo/NC_045512.2.fas.mmi          \
-            -rg s3://vireflow-demo/NC_045512.2.gff3             \
-            -p s3://vireflow-demo/sarscov2_v2_primers_swift.bed \
-            -d s3://vireflow-demo/results_all_s3                \
-            --include_depth                                     \
-            -o all_s3.rf                                        \
-            -mt 2                                               \
-            s3://vireflow-demo/test_R1.fastq                    \
-            s3://vireflow-demo/test_R2.fastq                    
+ViReflow.py -rf https://raw.githubusercontent.com/niemasd/ViReflow/main/demo/NC_045512.2.fas ...           
 ```
