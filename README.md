@@ -53,6 +53,9 @@ positional arguments:
   FQ                    Input FASTQ Files (s3 paths; single biological sample)
 ```
 
+### *Run ID (`-id/--run_id`)*
+Using the `-id/--run_id` argument, the user must specify a unique identifier for this run of the workflow. The run ID must only contain symbols from the alphabet `A-Z`, `a-z`, `.`, `-`, and `_`.
+
 ### *Destination (`-d/--destination`)*
 Using the `-d/--destination` argument, the user must specify the destination folder for the results of the workflow run on this sample. The destination must be an `s3` path (e.g. `s3://my_s3_bucket/current_sample/`).
 
