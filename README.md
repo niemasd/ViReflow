@@ -54,7 +54,7 @@ positional arguments:
 ```
 
 ### *Run ID (`-id/--run_id`)*
-Using the `-id/--run_id` argument, the user must specify a unique identifier for this run of the workflow. The run ID must only contain symbols from the alphabet `A-Z`, `a-z`, `.`, `-`, and `_`.
+Using the `-id/--run_id` argument, the user must specify a unique identifier for this run of the workflow. The run ID must only contain symbols from the alphabet `A-Z`, `a-z`, `0-9`, `.`, `-`, and `_`.
 
 ### *Destination (`-d/--destination`)*
 Using the `-d/--destination` argument, the user must specify the destination folder for the results of the workflow run on this sample. The destination must be an `s3` path (e.g. `s3://my_s3_bucket/current_sample/`).
@@ -97,7 +97,8 @@ sudo ViReflow.py -u
 We have provided [demo files](demo), and ViReflow can be executed as follows:
 
 ```bash
-ViReflow.py -rf s3://vireflow-demo/NC_045512.2.fas              \ # specify reference genome sequence
+ViReflow.py -id demo                                            \ # specify run ID
+            -rf s3://vireflow-demo/NC_045512.2.fas              \ # specify reference genome sequence
             -rm s3://vireflow-demo/NC_045512.2.fas.mmi          \ # specify reference genome Minimap2 index
             -rg s3://vireflow-demo/NC_045512.2.gff3             \ # specify reference genome annotation
             -p s3://vireflow-demo/sarscov2_v2_primers_swift.bed \ # specify primer BED
