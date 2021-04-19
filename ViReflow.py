@@ -113,9 +113,9 @@ if __name__ == "__main__":
     out_list = ['cp_sorted_untrimmed_bam', 'cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_consensus']
 
     # check run ID (anything except empty string is fine)
-    if len(args.run_ID) == 0:
+    if len(args.run_id) == 0:
         stderr.write("Run ID cannot be empty string\n"); exit(1)
-    for c in args.run_ID:
+    for c in args.run_id:
         if c not in RUN_ID_ALPHABET:
             stderr.write("Invalid symbol in Run ID: %s\n" % c); exit(1)
 
@@ -137,6 +137,7 @@ if __name__ == "__main__":
         from sys import stdout as rf_file
     else:
         rf_file = open(args.output, 'w')
+    rf_file.write('// Run ID: %s\n' % args.run_id)
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
     rf_file.write('@requires(disk := %s)\n' % TOOL['base']['disk'])
     rf_file.write('val Main = {\n')
