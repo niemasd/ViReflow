@@ -13,9 +13,10 @@ import argparse
 # useful constants
 VERSION = '0.0.1'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
+RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 TOOL = {
     'base': {
-        'docker_image':  'alpine:latest',                    # Base Docker image (Alpine)
+        'docker_image':  'niemasd/bash:latest',              # Base Docker image (Alpine with bash)
         'cpu_wget':      1,                                  # Num CPUs for wget
         'mem_wget':      '50*MiB',                           # Memory for wget
         'disk':          '5*GiB',                            # Overall, shouldn't need more than 5 GB of disk
@@ -88,6 +89,7 @@ def parse_args():
 
     # use argparse to parse user arguments
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-id', '--run_id', required=True, type=str, help="Unique Run Identifier (for output file naming)")
     parser.add_argument('-d', '--destination', required=True, type=str, help="Destination for Results (s3 folder)")
     parser.add_argument('-rf', '--reference_fasta', required=True, type=str, help="Reference Genome Sequence (s3/http/https/ftp to FASTA)")
     parser.add_argument('-rm', '--reference_mmi', required=False, type=str, default=None, help="Reference Genome Minimap2 Index (s3 to MMI)")
@@ -109,6 +111,13 @@ if __name__ == "__main__":
     # parse user args and prepare run
     args = parse_args()
     out_list = ['cp_sorted_untrimmed_bam', 'cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_consensus']
+
+    # check run ID (anything except empty string is fine)
+    if len(args.run_ID) == 0:
+        stderr.write("Run ID cannot be empty string\n"); exit(1)
+    for c in args.run_ID:
+        if c not in RUN_ID_ALPHABET:
+            stderr.write("Invalid symbol in Run ID: %s\n" % c); exit(1)
 
     # check max threads
     if args.max_threads < 1:
@@ -168,7 +177,7 @@ if __name__ == "__main__":
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % ref_fasta_url)
         rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_fas := files.Copy(ref_fas, "%s/reference.fas")' % args.destination)
+        rf_file.write('    cp_ref_fas := files.Copy(ref_fas, "%s/%s.reference.fas")' % (args.run_id, args.destination))
         out_list.append('cp_ref_fas')
     rf_file.write('\n\n')
 
@@ -178,7 +187,7 @@ if __name__ == "__main__":
         rf_file.write('    ref_mmi := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
         rf_file.write('        minimap2 -t %d -d "{{out}}" "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu_index'])
         rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/reference.mmi")' % args.destination)
+        rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.run_id, args.destination))
         out_list.append('cp_ref_mmi')
     else:
         ref_mmi_lower = args.reference_mmi.lower()
@@ -197,7 +206,7 @@ if __name__ == "__main__":
             rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
             rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_mmi)
             rf_file.write('    "}\n')
-            rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/reference.mmi")' % args.destination)
+            rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.run_id, args.destination))
             out_list.append('cp_ref_mmi')
     rf_file.write('\n\n')
 
@@ -218,7 +227,7 @@ if __name__ == "__main__":
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_gff)
         rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_gff := files.Copy(ref_gff, "%s/reference.gff")' % args.destination)
+        rf_file.write('    cp_ref_gff := files.Copy(ref_gff, "%s/%s.reference.gff")' % (args.run_id, args.destination))
         out_list.append('cp_ref_gff')
     rf_file.write('\n\n')
 
@@ -239,7 +248,7 @@ if __name__ == "__main__":
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.primer_bed)
         rf_file.write('    "}\n')
-        rf_file.write('    cp_primer_bed := files.Copy(primer_bed, "%s/primers.bed")' % args.destination)
+        rf_file.write('    cp_primer_bed := files.Copy(primer_bed, "%s/%s.primers.bed")' % (args.run_id, args.destination))
         out_list.append('cp_primer_bed')
     rf_file.write('\n\n')
 
@@ -248,7 +257,7 @@ if __name__ == "__main__":
     rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
     rf_file.write('        minimap2 -t %d -a -x sr "{{ref_mmi}}" %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     rf_file.write('    "}\n')
-    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/sorted.untrimmed.bam")\n' % args.destination)
+    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")\n' % (args.run_id, args.destination))
     rf_file.write('\n')
 
     # trim reads using iVar
@@ -262,7 +271,7 @@ if __name__ == "__main__":
     rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
     rf_file.write('        samtools sort --threads %d -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
     rf_file.write('    "}\n')
-    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/sorted.trimmed.bam")\n' % args.destination)
+    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.run_id, args.destination))
     rf_file.write('\n')
 
     # generate pile-up from sorted trimmed BAM
@@ -270,7 +279,7 @@ if __name__ == "__main__":
     rf_file.write('    pileup := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
     rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/pileup.txt")\n' % args.destination)
+    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/%s.pileup.txt")\n' % (args.run_id, args.destination))
     rf_file.write('\n')
 
     # call variants from pile-up
@@ -280,7 +289,7 @@ if __name__ == "__main__":
     rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
     rf_file.write('        mv tmp.tsv "{{out}}"\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_variants := files.Copy(variants, "%s/variants.tsv")\n' % args.destination)
+    rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.tsv")\n' % (args.run_id, args.destination))
     rf_file.write('\n')
 
     # call consensus from pile-up
@@ -288,7 +297,7 @@ if __name__ == "__main__":
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
     rf_file.write('        cat "{{pileup}}" | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa "{{out}}" 1>&2\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_consensus := files.Copy(consensus, "%s/consensus.fas")\n' % args.destination)
+    rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.run_id, args.destination))
     rf_file.write('\n')
 
     # run FastQC (optional)
@@ -300,7 +309,7 @@ if __name__ == "__main__":
         rf_file.write('        fastqc -o fastqc %s\n' % ' '.join('"{{%s}}"' % var for var,s3 in fqs))
         rf_file.write('        zip -9 "{{out}}" fastqc/*\n')
         rf_file.write('    "}\n')
-        rf_file.write('    cp_fastqc := files.Copy(fastqc, "%s/fastqc.zip")\n' % args.destination)
+        rf_file.write('    cp_fastqc := files.Copy(fastqc, "%s/%s.fastqc.zip")\n' % (args.run_id, args.destination))
         rf_file.write('\n')
 
     # call depth (optional)
@@ -310,7 +319,7 @@ if __name__ == "__main__":
         rf_file.write('    depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_depth'], TOOL['samtools']['cpu_depth']))
         rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "{{sorted_trimmed_bam}}" > "{{out}}"\n')
         rf_file.write('    "}\n')
-        rf_file.write('    cp_depth := files.Copy(depth, "%s/depth.txt")\n' % args.destination)
+        rf_file.write('    cp_depth := files.Copy(depth, "%s/%s.depth.txt")\n' % (args.run_id, args.destination))
         rf_file.write('\n')
 
     # finish Main
