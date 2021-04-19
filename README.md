@@ -33,17 +33,12 @@ While ViReflow itself only depends on Python 3, the pipelines it produces are [R
 ViReflow can be used as follows:
 
 ```
-usage: ViReflow.py [-h] -d DESTINATION -rf REFERENCE_FASTA [-rm REFERENCE_MMI]
-                   -rg REFERENCE_GFF -p PRIMER_BED [-o OUTPUT]
-                   [-mt MAX_THREADS] [--include_fastqc] [--include_depth] [-u]
-                   FQ [FQ ...]
+usage: ViReflow.py [-h] -id RUN_ID -d DESTINATION -rf REFERENCE_FASTA [-rm REFERENCE_MMI] -rg REFERENCE_GFF -p PRIMER_BED [-o OUTPUT] [-mt MAX_THREADS] [--include_fastqc] [--include_depth] [-u] FQ [FQ ...]
 
-positional arguments:
-  FQ                    Input FASTQ Files (s3 paths; single biological sample)
-
-optional arguments:
+flag arguments:
   -h, --help                                               show this help message and exit
-  -d DESTINATION, --destination DESTINATION                Destination for Results (s3 folder) (default: None)
+  -id RUN_ID, --run_id RUN_ID                              Unique Run Identifier (for output file naming)
+  -d DESTINATION, --destination DESTINATION                Destination for Results (s3 folder)
   -rf REFERENCE_FASTA, --reference_fasta REFERENCE_FASTA   Reference Genome Sequence (s3/http/https/ftp to FASTA)
   -rm REFERENCE_MMI, --reference_mmi REFERENCE_MMI         Reference Genome Minimap2 Index (s3 to MMI) (default: None)
   -rg REFERENCE_GFF, --reference_gff REFERENCE_GFF         Reference Genome Annotation (s3/http/https/ftp to GFF3)
@@ -53,6 +48,9 @@ optional arguments:
   --include_fastqc                                         Include FastQC (default: False)
   --include_depth                                          Include Depth Calling (default: False)
   -u, --update                                             Update ViReflow (default: False)
+
+positional arguments:
+  FQ                    Input FASTQ Files (s3 paths; single biological sample)
 ```
 
 ### *Destination (`-d/--destination`)*
