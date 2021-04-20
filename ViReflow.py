@@ -22,12 +22,6 @@ TOOL = {
         'disk':          '5*GiB',                            # Overall, shouldn't need more than 5 GB of disk
     },
 
-    'fastqc': {
-        'docker_image':  'niemasd/fastqc:latest',            # Docker image for fastqc
-        'cpu': 1,                                            # Num CPUs (just going to run single-threaded for memory reasons)
-        'mem': '2*GiB',                                      # Memory per FASTQ (Java allocates a ton of memory)
-    },
-
     'ivar': {
         'docker_image':  'niemasd/ivar:latest',              # Docker image for iVar
         'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
@@ -97,7 +91,7 @@ def parse_args():
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu_map'], help="Max Threads")
-    parser.add_argument('--include_fastqc', action="store_true", help="Include FastQC")
+    parser.add_argument('--include_qc', action="store_true", help="Include QC")
     parser.add_argument('--include_depth', action="store_true", help="Include Depth Calling")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
@@ -300,18 +294,6 @@ if __name__ == "__main__":
     rf_file.write('    "}\n')
     rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.run_id, args.destination))
     rf_file.write('\n')
-
-    # run FastQC (optional)
-    if args.include_fastqc:
-        out_list.append('cp_fastqc')
-        rf_file.write('    // Run FastQC\n')
-        rf_file.write('    fastqc := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['fastqc']['docker_image'], TOOL['fastqc']['mem'], TOOL['fastqc']['cpu']))
-        rf_file.write('        mkdir fastqc\n')
-        rf_file.write('        fastqc -o fastqc %s\n 1>&2' % ' '.join('"{{%s}}"' % var for var,s3 in fqs))
-        rf_file.write('        zip -9 "{{out}}" fastqc/* 1>&2\n')
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_fastqc := files.Copy(fastqc, "%s/%s.fastqc.zip")\n' % (args.run_id, args.destination))
-        rf_file.write('\n')
 
     # call depth (optional)
     if args.include_depth:
