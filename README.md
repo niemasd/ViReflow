@@ -82,7 +82,7 @@ In a given sequencing experiment, if you have multiple samples you want to run (
 for s in sample1 sample2 [REST_OF_SAMPLES] sampleN ; do ViReflow.py -id $s -o $s.rf [REST_OF_VIREFLOW_ARGS] ; done
 ```
 
-Then, you can use the [`rf_batch.py`](rf_batch.py) script to create a batch Reflow run file (`.rf`) that will execute all of the individual sample Reflow run files:
+Then, you can use the [`rf_batch.py`](rf_batch.py) script to create a batch Reflow run file that will execute all of the individual sample Reflow run files:
 
 ```bash
 rf_batch.py -o batch_samples.rf sample1.rf sample2.rf [REST_OF_SAMPLES].rf sampleN.rf
