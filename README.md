@@ -13,8 +13,6 @@ The workflows produced by ViReflow have the following steps:
     * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
 * **Call a consensus sequence** from the pile-up using [iVar](https://github.com/andersen-lab/ivar)
     * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
-* **Perform quality control on the raw reads** using [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) (optional, not recommended)
-    * Uses the [`niemasd/fastqc`](https://hub.docker.com/repository/docker/niemasd/fastqc) Docker image
 * **Calculate depth** from the trimmed mapped reads using [samtools](http://www.htslib.org/) (optional, recommended)
     * Uses the [`niemasd/samtools`](https://hub.docker.com/repository/docker/niemasd/samtools) Docker image
 
