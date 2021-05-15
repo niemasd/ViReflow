@@ -25,7 +25,7 @@ chmod a+x ViReflow.py
 sudo mv ViReflow.py /usr/local/bin/ViReflow.py # optional step to install globally
 ```
 
-While ViReflow itself only depends on Python 3, the pipelines it produces are [Reflow](https://github.com/grailbio/reflow) files that run on AWS. Thus, in order to run the pipelines ViReflow produces, one must first [install Reflow](https://github.com/grailbio/reflow#getting-reflow).
+While ViReflow itself only depends on Python 3, the pipelines it produces are [Reflow](https://github.com/grailbio/reflow) files that run on AWS. Thus, in order to run the pipelines ViReflow produces, one must first [install Reflow](../../wiki/Installing-Reflow).
 
 ## Usage
 ViReflow can be used as follows:
