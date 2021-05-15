@@ -10,6 +10,7 @@ from sys import stderr, stdout
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Batch Reflow Run File (RF)")
+    parser.add_argument('-a', '--abs_path', action="store_true", help="Use absolute paths to Reflow run files")
     parser.add_argument('rf_files', metavar='RF', type=str, nargs='+', help="Input Reflow Run Files (RF)")
     args = parser.parse_args()
     for rf in args.rf_files:
@@ -28,6 +29,10 @@ if __name__ == "__main__":
     args = parse_args()
     args.output.write("val Main = [\n")
     for rf in args.rf_files:
-        args.output.write('    make("%s").Main,\n' % abspath(rf))
+        if args.abs_path:
+            p = abspath(rf)
+        else:
+            p = rf
+        args.output.write('    make("%s").Main,\n' % p)
     args.output.write("]\n")
     args.output.close()
