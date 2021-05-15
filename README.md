@@ -54,7 +54,7 @@ positional arguments:
 Using the `-id/--run_id` argument, the user must specify a unique identifier for this run of the workflow. The run ID must only contain symbols from the alphabet `A-Z`, `a-z`, `0-9`, `.`, `-`, and `_`.
 
 ### *Destination (`-d/--destination`)*
-Using the `-d/--destination` argument, the user must specify the destination folder for the results of the workflow run on this sample. The destination must be an `s3` path (e.g. `s3://my_s3_bucket/current_sample/`).
+Using the `-d/--destination` argument, the user must specify the destination folder for the results of the workflow run on this sample. The destination must be an `s3` path (e.g. `s3://my_s3_bucket/my_output_folder/`).
 
 ### *Reference Genome Sequence FASTA (`-rf/--reference_fasta`)*
 Using the `-rf/--reference_fasta` argument, the user must specify the viral reference genome sequence (FASTA format) to use in this analysis. The user can specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.fas`), or alternatively, the user can specify a GenBank accession number (e.g. `NC_045512.2`), and ViReflow will download the reference genome automatically.
