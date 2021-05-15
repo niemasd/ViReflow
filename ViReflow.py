@@ -37,7 +37,7 @@ TOOL = {
         'cpu_index':     1,                                  # Num CPUs for indexing reference genome (Minimap2 indexing doesn't benefit from more than 1 CPU for viral genomes)
         'mem_index':     '50*MiB',                           # Memory for indexing reference genome (Minimap2 Peak RSS to index the SARS-CoV-2 reference was 0.003 GB)
         'cpu_map':       32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem_map':       '100*MiB',                          # Memory for mapping reads (takes 30 MB on demo)
+        'mem_map':       '4*GiB',                            # Memory for mapping reads (takes 30 MB on demo)
     },
 
     'minimap2_samtools': {
@@ -172,7 +172,7 @@ if __name__ == "__main__":
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % ref_fasta_url)
         rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_fas := files.Copy(ref_fas, "%s/%s.reference.fas")' % (args.run_id, args.destination))
+        rf_file.write('    cp_ref_fas := files.Copy(ref_fas, "%s/%s.reference.fas")' % (args.destination, args.run_id))
         out_list.append('cp_ref_fas')
     rf_file.write('\n\n')
 
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         rf_file.write('    ref_mmi := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
         rf_file.write('        minimap2 -t %d -d "{{out}}" "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu_index'])
         rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.run_id, args.destination))
+        rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.destination, args.run_id))
         out_list.append('cp_ref_mmi')
     else:
         ref_mmi_lower = args.reference_mmi.lower()
@@ -201,7 +201,7 @@ if __name__ == "__main__":
             rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
             rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_mmi)
             rf_file.write('    "}\n')
-            rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.run_id, args.destination))
+            rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.destination, args.run_id))
             out_list.append('cp_ref_mmi')
     rf_file.write('\n\n')
 
@@ -222,7 +222,7 @@ if __name__ == "__main__":
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_gff)
         rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_gff := files.Copy(ref_gff, "%s/%s.reference.gff")' % (args.run_id, args.destination))
+        rf_file.write('    cp_ref_gff := files.Copy(ref_gff, "%s/%s.reference.gff")' % (args.destination, args.run_id))
         out_list.append('cp_ref_gff')
     rf_file.write('\n\n')
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.primer_bed)
         rf_file.write('    "}\n')
-        rf_file.write('    cp_primer_bed := files.Copy(primer_bed, "%s/%s.primers.bed")' % (args.run_id, args.destination))
+        rf_file.write('    cp_primer_bed := files.Copy(primer_bed, "%s/%s.primers.bed")' % (args.destination, args.run_id))
         out_list.append('cp_primer_bed')
     rf_file.write('\n\n')
 
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
     rf_file.write('        minimap2 -t %d -a -x sr "{{ref_mmi}}" %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     rf_file.write('    "}\n')
-    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")\n' % (args.run_id, args.destination))
+    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
     # trim reads using iVar
@@ -266,7 +266,7 @@ if __name__ == "__main__":
     rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
     rf_file.write('        samtools sort --threads %d -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
     rf_file.write('    "}\n')
-    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.run_id, args.destination))
+    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
     # generate pile-up from sorted trimmed BAM
@@ -274,7 +274,7 @@ if __name__ == "__main__":
     rf_file.write('    pileup := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
     rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/%s.pileup.txt")\n' % (args.run_id, args.destination))
+    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/%s.pileup.txt")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
     # call variants from pile-up
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
     rf_file.write('        mv tmp.tsv "{{out}}"\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.tsv")\n' % (args.run_id, args.destination))
+    rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.tsv")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
     # call consensus from pile-up
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
     rf_file.write('        cat "{{pileup}}" | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa "{{out}}" 1>&2\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.run_id, args.destination))
+    rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
     # call depth (optional)
@@ -302,7 +302,7 @@ if __name__ == "__main__":
         rf_file.write('    depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_depth'], TOOL['samtools']['cpu_depth']))
         rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "{{sorted_trimmed_bam}}" > "{{out}}"\n')
         rf_file.write('    "}\n')
-        rf_file.write('    cp_depth := files.Copy(depth, "%s/%s.depth.txt")\n' % (args.run_id, args.destination))
+        rf_file.write('    cp_depth := files.Copy(depth, "%s/%s.depth.txt")\n' % (args.destination, args.run_id))
         rf_file.write('\n')
 
     # finish Main
