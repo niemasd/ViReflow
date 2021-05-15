@@ -109,3 +109,22 @@ This will result in the creation of a file called `all_s3.rf`, which is the Refl
 ```bash
 reflow run all_s3.rf
 ```
+
+## Batch Parallel Execution
+In a given sequencing experiment, if you have multiple samples you want to run (e.g. `sample1`, `sample2`, ..., `sampleN`), you can use ViReflow to process all of them in parallel (assuming your AWS account has access to spin up sufficient EC2 instances). First, you need to use ViReflow to produce a Reflow run file (`.rf`) for each sample:
+
+```bash
+for s in sample1 sample2 [REST_OF_SAMPLES] sampleN ; do ViReflow.py -id $s -o $s.rf [REST_OF_VIREFLOW_ARGS] ; done
+```
+
+Then, you can use the [`rf_batch.py`](rf_batch.py) script to create a batch Reflow run file (`.rf`) that will execute all of the individual sample Reflow run files:
+
+```bash
+rf_batch.py -o batch_samples.rf sample1.rf sample2.rf [REST_OF_SAMPLES].rf sampleN.rf
+```
+
+Now, you can simply run Reflow on the newly-created `batch_samples.rf`, and it will automatically execute of the individual sample Reflow run files:
+
+```bash
+reflow run batch_samples.rf
+```
