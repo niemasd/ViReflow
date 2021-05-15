@@ -31,7 +31,7 @@ While ViReflow itself only depends on Python 3, the pipelines it produces are [R
 ViReflow can be used as follows:
 
 ```
-usage: ViReflow.py [-h] -id RUN_ID -d DESTINATION -rf REFERENCE_FASTA [-rm REFERENCE_MMI] -rg REFERENCE_GFF -p PRIMER_BED [-o OUTPUT] [-mt MAX_THREADS] [--include_fastqc] [--include_depth] [-u] FQ [FQ ...]
+usage: ViReflow.py [-h] -id RUN_ID -d DESTINATION -rf REFERENCE_FASTA [-rm REFERENCE_MMI] -rg REFERENCE_GFF -p PRIMER_BED [-o OUTPUT] [-mt MAX_THREADS] [--include_depth] [-u] FQ [FQ ...]
 
 flag arguments:
   -h, --help                                               show this help message and exit
@@ -70,9 +70,6 @@ Using the `-p/--primer_bed` argument, the user must specify the primer file (BED
 
 ### *Output RF File (`-o/--output`)*
 Using the `-o/--output` argument, the user can optionally specify the local file path to which ViReflow should write the output ReFlow workflow file for this analysis. If an output file path is not provided (i.e., the `-o/--output` argument is not used), ViReflow will print the contents of the output ReFlow workflow file to standard output.
-
-### *Include FastQC Execution (`--include_fastqc`)*
-By default, ViReflow does not run FastQC: the Java Virtual Machine (JVM) does not play very nicely with AWS, and an excessively large AWS instance will need to be used to run FastQC in order to accommodate the maximum memory allocation pool for the JVM. This will result in a significant increase in per-hour AWS costs when running the workflow. We highly recommend not including FastQC in the ViReflow workflow, and instead, just running FastQC separately. If the user absolutely wants to include FastQC in the ViReflow workflow, the user can use the `--include_fastqc` argument.
 
 ### *Include Depth Calculation (`--include_depth`)*
 ViReflow can optionally calculate depth from the trimmed mapped reads. This step is optional because not all users desire the depth calculations, but because (1) it will be executed in parallel to variant and consensus calling, and (2) `samtools depth` does not require significant additional computational resources/runtime, it is generally recommended to include.
