@@ -43,7 +43,6 @@ flag arguments:
   -p PRIMER_BED, --primer_bed PRIMER_BED                   Primer (s3/http/https/ftp to BED)
   -o OUTPUT, --output OUTPUT                               Output Reflow File (rf) (default: stdout)
   -mt MAX_THREADS, --max_threads MAX_THREADS               Max Threads (default: 32)
-  --include_fastqc                                         Include FastQC (default: False)
   --include_depth                                          Include Depth Calling (default: False)
   -u, --update                                             Update ViReflow (default: False)
 
