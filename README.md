@@ -50,42 +50,7 @@ positional arguments:
   FQ                    Input FASTQ Files (s3 paths; single biological sample)
 ```
 
-### *Run ID (`-id/--run_id`)*
-Using the `-id/--run_id` argument, the user must specify a unique identifier for this run of the workflow. The run ID must only contain symbols from the alphabet `A-Z`, `a-z`, `0-9`, `.`, `-`, and `_`.
-
-### *Destination (`-d/--destination`)*
-Using the `-d/--destination` argument, the user must specify the destination folder for the results of the workflow run on this sample. The destination must be an `s3` path (e.g. `s3://my_s3_bucket/my_output_folder/`).
-
-### *Reference Genome Sequence FASTA (`-rf/--reference_fasta`)*
-Using the `-rf/--reference_fasta` argument, the user must specify the viral reference genome sequence (FASTA format) to use in this analysis. The user can specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.fas`), or alternatively, the user can specify a GenBank accession number (e.g. `NC_045512.2`), and ViReflow will download the reference genome automatically.
-
-### *Reference Genome Minimap2 Index (`-rm/--reference_mmi`)*
-Using the `-rm/--reference_mmi` argument, in order to avoid recomputation, the user can optionally specify the Minimap2 index file (MMI format) constructed from the reference genome sequence FASTA specified by the user via the `-rf/--reference_fasta` argument. The Minimap2 index must be an `s3` path (e.g. `s3://my_s3_bucket/reference.mmi`). If a Minimap2 index is not provided (i.e., the `-rm/--reference_mmi` argument is not used), ViReflow will index the user-provided reference genome automatically.
-
-### *Reference Genome Annotation GFF (`-rg/--reference_gff`)*
-Using the `-rg/--reference_gff` argument, the user must specify the viral genome annotation (GFF3 format) to use in this analysis. The user must specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.gff`).
-
-### *Primer BED (`-p/--primer_bed`)*
-Using the `-p/--primer_bed` argument, the user must specify the primer file (BED format) to use in this analysis. The user must specify an `s3`/`http`/`https`/`ftp` path (e.g. `s3://my_s3_bucket/reference.bed`).
-
-### *Output RF File (`-o/--output`)*
-Using the `-o/--output` argument, the user can optionally specify the local file path to which ViReflow should write the output ReFlow workflow file for this analysis. If an output file path is not provided (i.e., the `-o/--output` argument is not used), ViReflow will print the contents of the output ReFlow workflow file to standard output.
-
-### *Include Depth Calculation (`--include_depth`)*
-ViReflow can optionally calculate depth from the trimmed mapped reads. This step is optional because not all users desire the depth calculations, but because (1) it will be executed in parallel to variant and consensus calling, and (2) `samtools depth` does not require significant additional computational resources/runtime, it is generally recommended to include.
-
-### *Update ViReflow (`-u/--update`)*
-Using the `-u/--update` argument, the user can update ViReflow to the newest release version. If the user chooses to do this, the user does not need to provide any of the other arguments, e.g. the following:
-
-```bash
-ViReflow.py -u
-```
-
-If the user has installed ViReflow globally by placing [`ViReflow.py`](ViReflow.py) in a global directory (e.g. `/usr/local/bin`), updating ViReflow may require superuser access, e.g. the following:
-
-```bash
-sudo ViReflow.py -u
-```
+For extensive details about each command line argument, see the [Command Line Argument Descriptions](../../wiki/Command-Line-Argument-Descriptions) section of the ViReflow wiki.
 
 ## Example Usage
 We have provided [demo files](demo), and ViReflow can be executed as follows:
