@@ -38,6 +38,12 @@ TOOL = {
         'mem_consensus': '20*MiB',                           # Memory for consensus-calling (takes 1 MB on demo)
     },
 
+    'low_depth_regions': {
+        'docker_image':  'niemasd/low_depth_regions:latest', # Docker image for low_depth_regions
+        'cpu':           1,                                  # Num CPUs for low_depth_regions
+        'mem':           '20*MiB',                           # Memory for low_depth_regions
+    },
+
     'minimap2': {
         'docker_image':  'niemasd/minimap2:latest',          # Docker image for Minimap2
         'cpu_index':     1,                                  # Num CPUs for indexing reference genome (Minimap2 indexing doesn't benefit from more than 1 CPU for viral genomes)
@@ -97,8 +103,7 @@ def parse_args():
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu_map'], help="Max Threads")
-    parser.add_argument('--include_qc', action="store_true", help="Include QC")
-    parser.add_argument('--include_depth', action="store_true", help="Include Depth Calling")
+    #parser.add_argument('--include_qc', action="store_true", help="Include QC")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
@@ -110,7 +115,7 @@ def parse_args():
 if __name__ == "__main__":
     # parse user args and prepare run
     args = parse_args()
-    out_list = ['cp_sorted_untrimmed_bam', 'cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_consensus']
+    out_list = ['cp_sorted_untrimmed_bam', 'cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_depth', 'cp_low_depth', 'cp_consensus']
 
     # check run ID (anything except empty string is fine)
     if len(args.run_id) == 0:
@@ -294,26 +299,33 @@ if __name__ == "__main__":
     rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.vcf")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
-    # generate consensus from variants
+    # call depth
+    rf_file.write('    // Call depth from trimmed BAM\n')
+    rf_file.write('    depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_depth'], TOOL['samtools']['cpu_depth']))
+    rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "{{sorted_trimmed_bam}}" > "{{out}}"\n')
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_depth := files.Copy(depth, "%s/%s.depth.txt")\n' % (args.destination, args.run_id))
+    rf_file.write('\n')
+
+    # compute low-depth regions
+    rf_file.write('    // Find low-depth regions\n')
+    rf_file.write('    low_depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['low_depth_regions']['docker_image'], TOOL['low_depth_regions']['mem'], TOOL['low_depth_regions']['cpu']))
+    rf_file.write('        low_depth_regions.py -m 10 -i "{{depth}}" -o "{{out}}" 1>&2\n') # minimum depth of 10
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_low_depth := files.Copy(low_depth, "%s/%s.lowdepth.tsv")\n' % (args.destination, args.run_id))
+    rf_file.write('\n')
+
+    # generate consensus from variants and low-depth regions
     rf_file.write('    // Generate consensus from variants\n')
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bcftools']['docker_image'], TOOL['bcftools']['mem_consensus'], TOOL['bcftools']['cpu_consensus']))
-    #rf_file.write('        cat "{{pileup}}" | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa "{{out}}" 1>&2\n') # TODO FIX
-    rf_file.write('        bgzip -c "{{variants}}" > tmp.vcf.gz\n')
+    rf_file.write('        cat "{{variants}}" | grep "^#" > tmp.vcf\n') # get VCF header
+    rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\':\' \'($(NF) > 0.5)\' >> tmp.vcf\n') # get lines that passed and have at least 0.5 alternate frequency
+    rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
-    rf_file.write('        cat "{{ref_fas}}" | bcftools consensus tmp.vcf.gz > "{{out}}"\n')
+    rf_file.write('        cat "{{ref_fas}}" | bcftools consensus -m "{{low_depth}}" tmp.vcf.gz > "{{out}}"\n')
     rf_file.write('    "}\n')
     rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
-
-    # call depth (optional)
-    if args.include_depth:
-        out_list.append('cp_depth')
-        rf_file.write('    // Call depth from trimmed BAM\n')
-        rf_file.write('    depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_depth'], TOOL['samtools']['cpu_depth']))
-        rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "{{sorted_trimmed_bam}}" > "{{out}}"\n')
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_depth := files.Copy(depth, "%s/%s.depth.txt")\n' % (args.destination, args.run_id))
-        rf_file.write('\n')
 
     # finish Main
     rf_file.write('    // Finish workflow\n')
