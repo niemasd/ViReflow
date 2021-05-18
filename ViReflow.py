@@ -14,6 +14,7 @@ import argparse
 VERSION = '0.0.1'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
+VARIANT_CALLERS = {'ivar', 'lofreq'}
 TOOL = {
     'base': {
         'docker_image':  'niemasd/bash:latest',              # Base Docker image (Alpine with bash)
@@ -36,6 +37,12 @@ TOOL = {
         'mem_variants':  '20*MiB',                           # Memory for variant-calling (takes 1 MB on demo)
         'cpu_consensus': 1,                                  # Num CPUs for consensus-calling (iVar is still single-threaded)
         'mem_consensus': '20*MiB',                           # Memory for consensus-calling (takes 1 MB on demo)
+    },
+
+    'lofreq': {
+        'docker_image':  'niemasd/lofreq:latest',            # Docker image for LoFreq
+        'cpu':           1,                                  # Num CPUs for variant calling (it only multithreads if you have multiple reference sequences)
+        'mem':           '1*GiB',                            # Memory for variant calling
     },
 
     'low_depth_regions': {
@@ -103,10 +110,13 @@ def parse_args():
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu_map'], help="Max Threads")
-    #parser.add_argument('--include_qc', action="store_true", help="Include QC")
+    parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
+    parser.add_argument('-vc', '--variant_caller', required=False, type=str, default='ivar', help="Variant Caller")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
+    if args.variant_caller not in VARIANT_CALLERS:
+        stderr.write("Invalid variant caller: %s\n" % args.variant_caller); exit(1)
 
     # user args are valid, so return
     return args
@@ -288,13 +298,22 @@ if __name__ == "__main__":
     rf_file.write('    cp_pileup := files.Copy(pileup, "%s/%s.pileup.txt")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
-    # call variants from pile-up
+    # call variants
     rf_file.write('    // Call variants\n')
-    rf_file.write('    variants := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
-    rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
-    rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
-    #rf_file.write('        mv tmp.tsv "{{outtsv}}"\n') # no longer outputting iVar Variants TSV (just output VCF)
-    rf_file.write('        ivar_variants_to_vcf.py tmp.tsv "{{out}}" 1>&2\n')
+    rf_file.write('    variants := ')
+    if args.variant_caller == 'ivar':
+        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
+        rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
+        rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
+        rf_file.write('        ivar_variants_to_vcf.py tmp.tsv "{{out}}" 1>&2\n')
+    elif args.variant_caller == 'lofreq':
+        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['lofreq']['docker_image'], TOOL['lofreq']['mem'], TOOL['lofreq']['cpu']))
+        rf_file.write('        lofreq call -f "{{ref_fas}}" --call-indels "{{sorted_trimmed_bam}}" > "{{out}}"\n') # TODO
+    else:
+        stderr.write("Invalid variant caller: %s\n" % args.variant_caller)
+        if args.output != 'stdout':
+            rf_file.close(); remove(args.output)
+        exit(1)
     rf_file.write('    "}\n')
     rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.vcf")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
@@ -319,7 +338,15 @@ if __name__ == "__main__":
     rf_file.write('    // Generate consensus from variants\n')
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bcftools']['docker_image'], TOOL['bcftools']['mem_consensus'], TOOL['bcftools']['cpu_consensus']))
     rf_file.write('        cat "{{variants}}" | grep "^#" > tmp.vcf\n') # get VCF header
-    rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\':\' \'($(NF) > 0.5)\' >> tmp.vcf\n') # get lines that passed and have at least 0.5 alternate frequency
+    if args.variant_caller == 'ivar': # get lines that passed and have at least 0.5 alternate frequency
+        rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\':\' \'($(NF) > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
+    elif args.variant_caller == 'lofreq':
+        rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\'[;=]\' \'($4 > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
+    else:
+        stderr.write("Invalid variant caller: %s\n" % args.variant_caller)
+        if args.output != 'stdout':
+            rf_file.close(); remove(args.output)
+        exit(1)
     rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
     rf_file.write('        cat "{{ref_fas}}" | bcftools consensus -m "{{low_depth}}" tmp.vcf.gz > "{{out}}"\n')
