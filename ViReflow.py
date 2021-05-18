@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 VARIANT_CALLERS = {'ivar', 'lofreq'}
@@ -329,7 +329,7 @@ if __name__ == "__main__":
     # compute low-depth regions
     rf_file.write('    // Find low-depth regions\n')
     rf_file.write('    low_depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['low_depth_regions']['docker_image'], TOOL['low_depth_regions']['mem'], TOOL['low_depth_regions']['cpu']))
-    rf_file.write('        low_depth_regions.py -m 10 -i "{{depth}}" -o "{{out}}" 1>&2\n') # minimum depth of 10
+    rf_file.write('        low_depth_regions "{{depth}}" "{{out}}" 10 1>&2\n') # minimum depth of 10
     rf_file.write('    "}\n')
     rf_file.write('    cp_low_depth := files.Copy(low_depth, "%s/%s.lowdepth.tsv")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
