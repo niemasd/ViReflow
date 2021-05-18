@@ -29,6 +29,14 @@ TOOL = {
         'mem_consensus': '20*MiB',                           # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
     },
 
+    'bwa': {
+        'docker_image': 'niemasd/bwa:latest',                # Docker image for BWA
+        'cpu_index':    1,                                   # Num CPUs for indexing reference genome
+        'mem_index':    '50*MiB',                            # Memory for indexing reference genome (TODO need to test)
+        'cpu_map':      32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem_map':      '4*GiB',                             # Memory for mapping reads (TODO need to test)
+    },
+
     'ivar': {
         'docker_image':  'niemasd/ivar:latest',              # Docker image for iVar
         'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
