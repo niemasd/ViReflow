@@ -22,6 +22,12 @@ TOOL = {
         'disk':          '5*GiB',                            # Overall, shouldn't need more than 5 GB of disk
     },
 
+    'bcftools': {
+        'docker_image':  'niemasd/bcftools:latest',          # Docker image for bcftools
+        'cpu_consensus': 1,                                  # Num CPUs for consensus-calling
+        'mem_consensus': '20*MiB',                           # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
+    },
+
     'ivar': {
         'docker_image':  'niemasd/ivar:latest',              # Docker image for iVar
         'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
@@ -278,19 +284,23 @@ if __name__ == "__main__":
     rf_file.write('\n')
 
     # call variants from pile-up
-    rf_file.write('    // Call variants from pile-up\n')
+    rf_file.write('    // Call variants\n')
     rf_file.write('    variants := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
     rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
     rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
-    rf_file.write('        mv tmp.tsv "{{out}}"\n')
+    #rf_file.write('        mv tmp.tsv "{{outtsv}}"\n') # no longer outputting iVar Variants TSV (just output VCF)
+    rf_file.write('        ivar_variants_to_vcf.py tmp.tsv "{{out}}" 1>&2\n')
     rf_file.write('    "}\n')
-    rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.tsv")\n' % (args.destination, args.run_id))
+    rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.vcf")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
-    # call consensus from pile-up
-    rf_file.write('    // Call consensus from pile-up\n')
-    rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_consensus'], TOOL['ivar']['cpu_consensus']))
-    rf_file.write('        cat "{{pileup}}" | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa "{{out}}" 1>&2\n')
+    # generate consensus from variants
+    rf_file.write('    // Generate consensus from variants\n')
+    rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bcftools']['docker_image'], TOOL['bcftools']['mem_consensus'], TOOL['bcftools']['cpu_consensus']))
+    #rf_file.write('        cat "{{pileup}}" | ivar consensus -p consensus -m 10 -n N -t 0.5 1>&2 && mv consensus.fa "{{out}}" 1>&2\n') # TODO FIX
+    rf_file.write('        bgzip -c "{{variants}}" > tmp.vcf.gz\n')
+    rf_file.write('        bcftools index tmp.vcf.gz\n')
+    rf_file.write('        cat "{{ref_fas}}" | bcftools consensus tmp.vcf.gz > "{{out}}"\n')
     rf_file.write('    "}\n')
     rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
