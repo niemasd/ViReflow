@@ -31,10 +31,8 @@ TOOL = {
 
     'bwa': {
         'docker_image': 'niemasd/bwa:latest',                # Docker image for BWA
-        'cpu_index':    1,                                   # Num CPUs for indexing reference genome
-        'mem_index':    '50*MiB',                            # Memory for indexing reference genome (TODO need to test)
-        'cpu_map':      32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem_map':      '4*GiB',                             # Memory for mapping reads (TODO need to test)
+        'cpu':          32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':          '4*GiB',                             # Memory for mapping reads (TODO need to test)
     },
 
     'ivar': {
@@ -61,10 +59,8 @@ TOOL = {
 
     'minimap2': {
         'docker_image':  'niemasd/minimap2:latest',          # Docker image for Minimap2
-        'cpu_index':     1,                                  # Num CPUs for indexing reference genome (Minimap2 indexing doesn't benefit from more than 1 CPU for viral genomes)
-        'mem_index':     '50*MiB',                           # Memory for indexing reference genome (Minimap2 Peak RSS to index the SARS-CoV-2 reference was 0.003 GB)
-        'cpu_map':       32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem_map':       '4*GiB',                            # Memory for mapping reads (takes 30 MB on demo)
+        'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':           '4*GiB',                            # Memory for mapping reads (takes 30 MB on demo)
     },
 
     'minimap2_samtools': {
@@ -113,11 +109,10 @@ def parse_args():
     parser.add_argument('-id', '--run_id', required=True, type=str, help="Unique Run Identifier (for output file naming)")
     parser.add_argument('-d', '--destination', required=True, type=str, help="Destination for Results (s3 folder)")
     parser.add_argument('-rf', '--reference_fasta', required=True, type=str, help="Reference Genome Sequence (s3/http/https/ftp to FASTA)")
-    parser.add_argument('-rm', '--reference_mmi', required=False, type=str, default=None, help="Reference Genome Minimap2 Index (s3 to MMI)")
     parser.add_argument('-rg', '--reference_gff', required=True, type=str, help="Reference Genome Annotation (s3/http/https/ftp to GFF3)")
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
-    parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu_map'], help="Max Threads")
+    parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu'], help="Max Threads")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
     parser.add_argument('-vc', '--variant_caller', required=False, type=str, default='ivar', help="Variant Caller")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
@@ -147,7 +142,7 @@ if __name__ == "__main__":
         stderr.write("Invalid maximum number of threads: %d\n" % args.max_threads); exit(1)
     for k1 in TOOL:
         for k2 in TOOL[k1]:
-            if k2.startswith('cpu_') and TOOL[k1][k2] != 1: # some tools only run single-threaded
+            if k2.startswith('cpu') and TOOL[k1][k2] != 1: # some tools only run single-threaded
                 TOOL[k1][k2] = args.max_threads
 
     # check destination folder
@@ -205,35 +200,6 @@ if __name__ == "__main__":
         out_list.append('cp_ref_fas')
     rf_file.write('\n\n')
 
-    # handle reference index
-    if args.reference_mmi is None:
-        rf_file.write('    // Create Minimap2 reference index\n')
-        rf_file.write('    ref_mmi := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2']['docker_image'], TOOL['minimap2']['mem_index'], TOOL['minimap2']['cpu_index']))
-        rf_file.write('        minimap2 -t %d -d "{{out}}" "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu_index'])
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.destination, args.run_id))
-        out_list.append('cp_ref_mmi')
-    else:
-        ref_mmi_lower = args.reference_mmi.lower()
-        rf_file.write('    // Use existing Minimap2 reference index: %s\n' % args.reference_mmi)
-        rf_file.write('    ref_mmi := ')
-        if ref_mmi_lower.startswith('s3://'): # Amazon S3 path
-            rf_file.write('file("%s")' % args.reference_mmi)
-        else:
-            try:
-                urlopen(args.reference_mmi)
-            except:
-                stderr.write("Invalid reference genome MMI: %s\n" % args.reference_mmi)
-                if args.output != 'stdout':
-                    rf_file.close(); remove(args.output)
-                exit(1)
-            rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-            rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_mmi)
-            rf_file.write('    "}\n')
-            rf_file.write('    cp_ref_mmi := files.Copy(ref_mmi, "%s/%s.reference.mmi")' % (args.destination, args.run_id))
-            out_list.append('cp_ref_mmi')
-    rf_file.write('\n\n')
-
     # handle reference annotation
     ref_gff_lower = args.reference_gff.lower()
     rf_file.write('    // Use reference GFF3 file: %s\n' % args.reference_gff)
@@ -278,8 +244,9 @@ if __name__ == "__main__":
 
     # map reads using Minimap2 and sort using samtools
     rf_file.write('    // Map reads using Minimap2 and sort using samtools\n')
-    rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem_map'], TOOL['minimap2']['cpu_map']))
-    rf_file.write('        minimap2 -t %d -a -x sr "{{ref_mmi}}" %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu_map'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+    rf_file.write('    sorted_untrimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem'], TOOL['minimap2']['cpu']))
+    rf_file.write('        minimap2 -t %d -d ref.mmi "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu'])
+    rf_file.write('        minimap2 -t %d -a -x sr ref.mmi %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     rf_file.write('    "}\n')
     rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
