@@ -11,11 +11,11 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 VARIANT_CALLERS = {'ivar', 'lofreq'}
-READ_MAPPERS = {'bwa', 'minimap2'}
+READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 TOOL = {
     'base': {
         'docker_image':  'niemasd/bash:latest',              # Base Docker image (Alpine with bash)
@@ -30,10 +30,20 @@ TOOL = {
         'mem_consensus': '20*MiB',                           # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
     },
 
+    'bowtie2': {
+        'docker_image': 'niemasd/bowtie2:latest',            # Docker image for Bowtie2
+        'cpu':          32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':          '4*GiB',                             # Memory for mapping reads (TODO should reduce)
+    },
+
+    'bowtie2_samtools': {
+        'docker_image': 'niemasd/bowtie2_samtools:latest',   # Docker image for Bowtie2 + samtools
+    },
+
     'bwa': {
         'docker_image': 'niemasd/bwa:latest',                # Docker image for BWA
         'cpu':          32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':          '4*GiB',                             # Memory for mapping reads (TODO need to test)
+        'mem':          '4*GiB',                             # Memory for mapping reads (TODO should reduce)
     },
 
     'bwa_samtools': {
@@ -65,7 +75,7 @@ TOOL = {
     'minimap2': {
         'docker_image':  'niemasd/minimap2:latest',          # Docker image for Minimap2
         'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '4*GiB',                            # Memory for mapping reads (takes 30 MB on demo)
+        'mem':           '4*GiB',                            # Memory for mapping reads (TODO should reduce)
     },
 
     'minimap2_samtools': {
@@ -255,15 +265,19 @@ if __name__ == "__main__":
     # map reads and sort
     rf_file.write('    // Map reads and sort\n')
     rf_file.write('    sorted_untrimmed_bam := ')
-    if args.read_mapper == 'minimap2':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem'], TOOL['minimap2']['cpu']))
-        rf_file.write('        minimap2 -t %d -d ref.mmi "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu'])
-        rf_file.write('        minimap2 -t %d -a -x sr ref.mmi %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+    if args.read_mapper == 'bowtie2':
+        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bowtie2_samtools']['docker_image'], TOOL['bowtie2']['mem'], TOOL['bowtie2']['cpu']))
+        rf_file.write('        bowtie2-build --threads %d -f "{{ref_fas}}" ref 1>&2\n' % TOOL['bowtie2']['cpu'])
+        rf_file.write('        bowtie2 --threads %d -x ref -U %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['bowtie2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     elif args.read_mapper == 'bwa':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bwa_samtools']['docker_image'], TOOL['bwa']['mem'], TOOL['bwa']['cpu']))
         rf_file.write('        cp "{{ref_fas}}" ref.fas\n')
         rf_file.write('        bwa index ref.fas 1>&2\n')
         rf_file.write('        bwa mem -t %d ref.fas %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['bwa']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+    elif args.read_mapper == 'minimap2':
+        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem'], TOOL['minimap2']['cpu']))
+        rf_file.write('        minimap2 -t %d -d ref.mmi "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu'])
+        rf_file.write('        minimap2 -t %d -a -x sr ref.mmi %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
     else:
         stderr.write("Invalid read mapper: %s\n" % args.read_mapper)
         if args.output != 'stdout':
