@@ -14,8 +14,18 @@ import argparse
 VERSION = '1.0.3'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
-VARIANT_CALLERS = {'ivar', 'lofreq'}
+READ_TRIMMERS = {
+    'reads': {
+        'fastq': {'fastp'}, # trimmers that work on raw reads (FASTQ)
+        'bam':   {'ivar'},  # trimmers that work on mapped reads (BAM)
+    },
+    'primers': {
+        'bed':   {'ivar'},  # trimmers that use BED primers
+        'fasta': {'fastp'}, # trimmers that use FASTA primers
+    }
+}
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
+VARIANT_CALLERS = {'ivar', 'lofreq'}
 TOOL = {
     'base': {
         'docker_image':  'niemasd/bash:latest',              # Base Docker image (Alpine with bash)
@@ -30,24 +40,36 @@ TOOL = {
         'mem_consensus': '20*MiB',                           # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
     },
 
+    'bedtools': {
+        'docker_image':  'niemasd/bedtools:latest',          # Docker image for bedtools
+        'cpu_getfasta':  1,                                  # Num CPUs for bedtools getfasta
+        'mem_getfasta':  '20*MiB',                           # Memory for bedtools getfasta (TODO CHECK)
+    },
+
     'bowtie2': {
-        'docker_image': 'niemasd/bowtie2:latest',            # Docker image for Bowtie2
-        'cpu':          32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':          '4*GiB',                             # Memory for mapping reads (TODO should reduce)
+        'docker_image':  'niemasd/bowtie2:latest',           # Docker image for Bowtie2
+        'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':           '4*GiB',                            # Memory for mapping reads (TODO should reduce)
     },
 
     'bowtie2_samtools': {
-        'docker_image': 'niemasd/bowtie2_samtools:latest',   # Docker image for Bowtie2 + samtools
+        'docker_image':  'niemasd/bowtie2_samtools:latest',  # Docker image for Bowtie2 + samtools
     },
 
     'bwa': {
-        'docker_image': 'niemasd/bwa:latest',                # Docker image for BWA
-        'cpu':          32,                                  # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':          '4*GiB',                             # Memory for mapping reads (TODO should reduce)
+        'docker_image':  'niemasd/bwa:latest',               # Docker image for BWA
+        'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':           '4*GiB',                            # Memory for mapping reads (TODO should reduce)
     },
 
     'bwa_samtools': {
-        'docker_image': 'niemasd/bwa_samtools:latest',       # Docker image for BWA + samtools
+        'docker_image':  'niemasd/bwa_samtools:latest',      # Docker image for BWA + samtools
+    },
+
+    'fastp': {
+        'docker_image':  'niemasd/fastp:latest',             # Docker image for fastp
+        'cpu':           32,                                 # Num CPUs for trimming
+        'mem':           '1*GiB',                            # Memory for trimming (TODO should reduce)
     },
 
     'ivar': {
@@ -130,16 +152,27 @@ def parse_args():
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu'], help="Max Threads")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper")
+    parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer")
     parser.add_argument('--variant_caller', required=False, type=str, default='ivar', help="Variant Caller")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
     args.variant_caller = args.variant_caller.lower()
-    if args.variant_caller not in VARIANT_CALLERS:
-        stderr.write("Invalid variant caller: %s\n" % args.variant_caller); exit(1)
+
+    # check read mapper selection is valid
     args.read_mapper = args.read_mapper.lower()
     if args.read_mapper not in READ_MAPPERS:
         stderr.write("Invalid read mapper: %s\n" % args.read_mapper); exit(1)
+
+    # check read trimmer selection is valid
+    args.read_trimmer = args.read_trimmer.lower()
+    if args.read_trimmer not in READ_TRIMMERS['reads']['fastq'] and args.read_trimmer not in READ_TRIMMERS['reads']['bam']:
+        stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer); exit(1)
+
+    # check variant caller selection is valid
+    args.variant_caller = args.variant_caller.lower()
+    if args.variant_caller not in VARIANT_CALLERS:
+        stderr.write("Invalid variant caller: %s\n" % args.variant_caller); exit(1)
 
     # user args are valid, so return
     return args
@@ -148,7 +181,10 @@ def parse_args():
 if __name__ == "__main__":
     # parse user args and prepare run
     args = parse_args()
-    out_list = ['cp_sorted_untrimmed_bam', 'cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_depth', 'cp_low_depth', 'cp_consensus']
+    out_list = list()
+    if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
+        out_list.append('cp_sorted_untrimmed_bam')
+    out_list += ['cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_depth', 'cp_low_depth', 'cp_consensus']
 
     # check run ID (anything except empty string is fine)
     if len(args.run_id) == 0:
@@ -179,7 +215,7 @@ if __name__ == "__main__":
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
     rf_file.write('@requires(disk := %s)\n' % TOOL['base']['disk'])
     rf_file.write('val Main = {\n')
-    rf_file.write('    files := make("$/files")\n')
+    rf_file.write('    files := make("$/files")\n\n')
 
     # handle input FASTQs
     fqs = list() # (Reflow variable, s3 path) tuples
@@ -194,6 +230,8 @@ if __name__ == "__main__":
     for tup in fqs:
         rf_file.write('    %s := file("%s")\n' % tup)
     rf_file.write('\n')
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        out_list = ['cp_trimmed_%s' % var for var,s3 in fqs] + out_list
 
     # handle reference sequence
     ref_fas_lower = args.reference_fasta.lower()
@@ -262,9 +300,41 @@ if __name__ == "__main__":
         out_list.append('cp_primer_bed')
     rf_file.write('\n\n')
 
+    # handle primer FASTA (if needed)
+    if args.read_trimmer in READ_TRIMMERS['primers']['fasta']:
+        rf_file.write('    // Create primer FASTA file\n')
+        rf_file.write('    primer_fas := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bedtools']['docker_image'], TOOL['bedtools']['mem_getfasta'], TOOL['bedtools']['cpu_getfasta']))
+        rf_file.write('        bedtools getfasta -fi "{{ref_fas}}" -bed "{{primer_bed}}" -fo "{{out}}" 1>&2\n')
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_primer_fas := files.Copy(primer_fas, "%s/%s.primers.fas")' % (args.destination, args.run_id))
+        rf_file.write('\n\n')
+        out_list.append('cp_primer_fas')
+
+    # trim unmapped reads (if using FASTQ trimmer)
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        rf_file.write('    // Trim reads\n')
+        for i in range(len(fqs)):
+            var,s3 = fqs[i]
+            fqs[i] = ('trimmed_%s' % var, s3)
+            rf_file.write('    trimmed_%s := ' % var)
+            if args.read_trimmer == 'fastp':
+                rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['fastp']['docker_image'], TOOL['fastp']['mem'], TOOL['fastp']['cpu']))
+                rf_file.write('        fastp --thread %d --adapter_fasta "{{primer_fas}}" -i "{{%s}}" -o "{{out}}" 1>&2\n' % (TOOL['fastp']['cpu'], var))
+                rf_file.write('    "}\n')
+                rf_file.write('    cp_%s := files.Copy(%s, "%s/%s.reads.trimmed.%s.fastq")\n' % (fqs[i][0], fqs[i][0], args.destination, args.run_id, var))
+            else:
+                stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
+                if args.output != 'stdout':
+                    rf_file.close(); remove(args.output)
+                exit(1)
+        rf_file.write('\n')
+
     # map reads and sort
     rf_file.write('    // Map reads and sort\n')
-    rf_file.write('    sorted_untrimmed_bam := ')
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        rf_file.write('    sorted_trimmed_bam := ')
+    else:
+        rf_file.write('    sorted_untrimmed_bam := ')
     if args.read_mapper == 'bowtie2':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bowtie2_samtools']['docker_image'], TOOL['bowtie2']['mem'], TOOL['bowtie2']['cpu']))
         rf_file.write('        bowtie2-build --threads %d -f "{{ref_fas}}" ref 1>&2\n' % TOOL['bowtie2']['cpu'])
@@ -284,22 +354,33 @@ if __name__ == "__main__":
             rf_file.close(); remove(args.output)
         exit(1)
     rf_file.write('    "}\n')
-    rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")\n' % (args.destination, args.run_id))
-    rf_file.write('\n')
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.untrimmed.bam")' % (args.destination, args.run_id))
+    else:
+        rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")' % (args.destination, args.run_id))
+    rf_file.write('\n\n')
 
     # trim reads using iVar
-    rf_file.write('    // Trim reads using iVar\n')
-    rf_file.write('    trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_trim'], TOOL['ivar']['cpu_trim']))
-    rf_file.write('        ivar trim -x 5 -e -i "{{sorted_untrimmed_bam}}" -b "{{primer_bed}}" -p trimmed 1>&2 && mv trimmed.bam "{{out}}"\n')
-    rf_file.write('    "}\n\n')
+    if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
+        if args.read_trimmer == 'ivar':
+            rf_file.write('    // Trim reads using iVar\n')
+            rf_file.write('    trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_trim'], TOOL['ivar']['cpu_trim']))
+            rf_file.write('        ivar trim -x 5 -e -i "{{sorted_untrimmed_bam}}" -b "{{primer_bed}}" -p trimmed 1>&2 && mv trimmed.bam "{{out}}"\n')
+            rf_file.write('    "}\n\n')
+        else:
+            stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
+            if args.output != 'stdout':
+                rf_file.close(); remove(args.output)
+            exit(1)
 
-    # sort trimmed BAM
-    rf_file.write('    // Sort trimmed BAM\n')
-    rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
-    rf_file.write('        samtools sort --threads %d -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
-    rf_file.write('    "}\n')
-    rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.destination, args.run_id))
-    rf_file.write('\n')
+    # sort trimmed BAM (if using BAM trimmer)
+    if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
+        rf_file.write('    // Sort trimmed BAM\n')
+        rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
+        rf_file.write('        samtools sort --threads %d -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
+        rf_file.write('    "}\n')
+        rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.destination, args.run_id))
+        rf_file.write('\n')
 
     # generate pile-up from sorted trimmed BAM
     rf_file.write('    // Generate pile-up from sorted trimmed BAM\n')
@@ -319,7 +400,7 @@ if __name__ == "__main__":
         rf_file.write('        ivar_variants_to_vcf.py tmp.tsv "{{out}}" 1>&2\n')
     elif args.variant_caller == 'lofreq':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['lofreq']['docker_image'], TOOL['lofreq']['mem'], TOOL['lofreq']['cpu']))
-        rf_file.write('        lofreq call -f "{{ref_fas}}" --call-indels "{{sorted_trimmed_bam}}" > "{{out}}"\n') # TODO
+        rf_file.write('        lofreq call -f "{{ref_fas}}" --call-indels "{{sorted_trimmed_bam}}" > "{{out}}"\n')
     else:
         stderr.write("Invalid variant caller: %s\n" % args.variant_caller)
         if args.output != 'stdout':
