@@ -1,7 +1,7 @@
 # ViReflow
 ViReflow is a tool for constructing elastically-scaling parallelized automated AWS pipelines for viral consensus sequence generation. Given sequence data from a viral sample as well as information about the reference genome and primers, ViReflow generates a [Reflow](https://github.com/grailbio/reflow) file that contains all steps of the workflow, including AWS instance specifications. Because ViReflow is intended to be used with Reflow, the workflows that are developed by ViReflow automatically distribute independent tasks to be run in parallel as well as elastically scale AWS instances based on each individual step of the workflow. ViReflow makes use of compact minimal Docker images for each step of the viral analysis workflow, details about which can be found in the [Niema-Docker](https://github.com/Niema-Docker) GitHub organization.
 
-## Workflow Summary
+## Workflow Summary (TODO NEED TO UPDATE, OUT OF DATE)
 The workflows produced by ViReflow have the following steps:
 * **Map the reads** using [Minimap2](https://github.com/lh3/minimap2)
     * Uses the [`niemasd/minimap2_samtools`](https://hub.docker.com/repository/docker/niemasd/minimap2_samtools) Docker image
@@ -27,7 +27,7 @@ sudo mv ViReflow.py /usr/local/bin/ViReflow.py # optional step to install global
 
 While ViReflow itself only depends on Python 3, the pipelines it produces are [Reflow](https://github.com/grailbio/reflow) files that run on AWS. Thus, in order to run the pipelines ViReflow produces, one must first [install Reflow](../../wiki/Installing-Reflow).
 
-## Usage
+## Usage (TODO NEED TO UPDATE, OUT OF DATE)
 ViReflow can be used as follows:
 
 ```
