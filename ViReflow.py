@@ -31,7 +31,7 @@ TOOL = {
         'docker_image':  'niemasd/bash:latest',              # Base Docker image (Alpine with bash)
         'cpu_wget':      1,                                  # Num CPUs for wget
         'mem_wget':      '50*MiB',                           # Memory for wget
-        'disk':          '5*GiB',                            # Overall, shouldn't need more than 5 GB of disk
+        'disk':          '3*GiB',                            # Overall, shouldn't need more than 3 GB of disk
     },
 
     'bcftools': {
@@ -43,13 +43,13 @@ TOOL = {
     'bedtools': {
         'docker_image':  'niemasd/bedtools:latest',          # Docker image for bedtools
         'cpu_getfasta':  1,                                  # Num CPUs for bedtools getfasta
-        'mem_getfasta':  '20*MiB',                           # Memory for bedtools getfasta (TODO CHECK)
+        'mem_getfasta':  '20*MiB',                           # Memory for bedtools getfasta
     },
 
     'bowtie2': {
         'docker_image':  'niemasd/bowtie2:latest',           # Docker image for Bowtie2
         'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '4*GiB',                            # Memory for mapping reads (TODO should reduce)
+        'mem':           '128*MiB',                          # Memory for mapping reads (TODO CHECK)
     },
 
     'bowtie2_samtools': {
@@ -59,7 +59,7 @@ TOOL = {
     'bwa': {
         'docker_image':  'niemasd/bwa:latest',               # Docker image for BWA
         'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '4*GiB',                            # Memory for mapping reads (TODO should reduce)
+        'mem':           '128*MiB',                          # Memory for mapping reads (TODO CHECK)
     },
 
     'bwa_samtools': {
@@ -69,7 +69,7 @@ TOOL = {
     'fastp': {
         'docker_image':  'niemasd/fastp:latest',             # Docker image for fastp
         'cpu':           32,                                 # Num CPUs for trimming
-        'mem':           '1*GiB',                            # Memory for trimming (TODO should reduce)
+        'mem':           '128*MiB',                          # Memory for trimming
     },
 
     'ivar': {
@@ -85,7 +85,7 @@ TOOL = {
     'lofreq': {
         'docker_image':  'niemasd/lofreq:latest',            # Docker image for LoFreq
         'cpu':           1,                                  # Num CPUs for variant calling (it only multithreads if you have multiple reference sequences)
-        'mem':           '1*GiB',                            # Memory for variant calling
+        'mem':           '128*MiB',                          # Memory for variant calling
     },
 
     'low_depth_regions': {
@@ -97,7 +97,7 @@ TOOL = {
     'minimap2': {
         'docker_image':  'niemasd/minimap2:latest',          # Docker image for Minimap2
         'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '4*GiB',                            # Memory for mapping reads (TODO should reduce)
+        'mem':           '128*MiB',                          # Memory for mapping reads
     },
 
     'minimap2_samtools': {
@@ -213,6 +213,7 @@ if __name__ == "__main__":
         rf_file = open(args.output, 'w')
     rf_file.write('// Run ID: %s\n' % args.run_id)
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
+    rf_file.write('// ViReflow command: %s\n' % ' '.join(argv))
     rf_file.write('@requires(disk := %s)\n' % TOOL['base']['disk'])
     rf_file.write('val Main = {\n')
     rf_file.write('    files := make("$/files")\n\n')
