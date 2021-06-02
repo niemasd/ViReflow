@@ -29,90 +29,90 @@ READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'ivar', 'lofreq'}
 TOOL = {
     'base': {
-        'docker_image':  'niemasd/bash:latest',              # Base Docker image (Alpine with bash)
-        'cpu_wget':      1,                                  # Num CPUs for wget
-        'mem_wget':      '50*MiB',                           # Memory for wget
-        'disk':          '3*GiB',                            # Overall, shouldn't need more than 3 GB of disk
+        'docker_image':  'niemasd/bash:5.1.0',                  # Base Docker image (Alpine with bash)
+        'cpu_wget':      1,                                     # Num CPUs for wget
+        'mem_wget':      '50*MiB',                              # Memory for wget
+        'disk':          '3*GiB',                               # Overall, shouldn't need more than 3 GB of disk
     },
 
     'bcftools': {
-        'docker_image':  'niemasd/bcftools:latest',          # Docker image for bcftools
-        'cpu_consensus': 1,                                  # Num CPUs for consensus-calling
-        'mem_consensus': '20*MiB',                           # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
+        'docker_image':  'niemasd/bcftools:1.12',               # Docker image for bcftools
+        'cpu_consensus': 1,                                     # Num CPUs for consensus-calling
+        'mem_consensus': '20*MiB',                              # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
     },
 
     'bedtools': {
-        'docker_image':  'niemasd/bedtools:latest',          # Docker image for bedtools
-        'cpu_getfasta':  1,                                  # Num CPUs for bedtools getfasta
-        'mem_getfasta':  '20*MiB',                           # Memory for bedtools getfasta
+        'docker_image':  'niemasd/bedtools:2.30.0',             # Docker image for bedtools
+        'cpu_getfasta':  1,                                     # Num CPUs for bedtools getfasta
+        'mem_getfasta':  '20*MiB',                              # Memory for bedtools getfasta
     },
 
     'bowtie2': {
-        'docker_image':  'niemasd/bowtie2:latest',           # Docker image for Bowtie2
-        'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                          # Memory for mapping reads (TODO CHECK)
+        'docker_image':  'niemasd/bowtie2:2.4.3',               # Docker image for Bowtie2
+        'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':           '128*MiB',                             # Memory for mapping reads (TODO CHECK)
     },
 
     'bowtie2_samtools': {
-        'docker_image':  'niemasd/bowtie2_samtools:latest',  # Docker image for Bowtie2 + samtools
+        'docker_image':  'niemasd/bowtie2_samtools:2.4.3_1.12', # Docker image for Bowtie2 + samtools
     },
 
     'bwa': {
-        'docker_image':  'niemasd/bwa:latest',               # Docker image for BWA
-        'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                          # Memory for mapping reads (TODO CHECK)
+        'docker_image':  'niemasd/bwa:0.7.17',                  # Docker image for BWA
+        'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':           '128*MiB',                             # Memory for mapping reads (TODO CHECK)
     },
 
     'bwa_samtools': {
-        'docker_image':  'niemasd/bwa_samtools:latest',      # Docker image for BWA + samtools
+        'docker_image':  'niemasd/bwa_samtools:0.7.17_1.12',    # Docker image for BWA + samtools
     },
 
     'fastp': {
-        'docker_image':  'niemasd/fastp:latest',             # Docker image for fastp
-        'cpu':           32,                                 # Num CPUs for trimming
-        'mem':           '128*MiB',                          # Memory for trimming
+        'docker_image':  'niemasd/fastp:0.20.1',                # Docker image for fastp
+        'cpu':           32,                                    # Num CPUs for trimming
+        'mem':           '128*MiB',                             # Memory for trimming
     },
 
     'ivar': {
-        'docker_image':  'niemasd/ivar:latest',              # Docker image for iVar
-        'cpu_trim':      1,                                  # Num CPUs for trimming (iVar is still single-threaded)
-        'mem_trim':      '50*MiB',                           # Memory for trimming (takes 7 MB on demo)
-        'cpu_variants':  1,                                  # Num CPUs for variant-calling (iVar is still single-threaded)
-        'mem_variants':  '20*MiB',                           # Memory for variant-calling (takes 1 MB on demo)
-        'cpu_consensus': 1,                                  # Num CPUs for consensus-calling (iVar is still single-threaded)
-        'mem_consensus': '20*MiB',                           # Memory for consensus-calling (takes 1 MB on demo)
+        'docker_image':  'niemasd/ivar:1.3.1',                  # Docker image for iVar
+        'cpu_trim':      1,                                     # Num CPUs for trimming (iVar is still single-threaded)
+        'mem_trim':      '50*MiB',                              # Memory for trimming (takes 7 MB on demo)
+        'cpu_variants':  1,                                     # Num CPUs for variant-calling (iVar is still single-threaded)
+        'mem_variants':  '20*MiB',                              # Memory for variant-calling (takes 1 MB on demo)
+        'cpu_consensus': 1,                                     # Num CPUs for consensus-calling (iVar is still single-threaded)
+        'mem_consensus': '20*MiB',                              # Memory for consensus-calling (takes 1 MB on demo)
     },
 
     'lofreq': {
-        'docker_image':  'niemasd/lofreq:latest',            # Docker image for LoFreq
-        'cpu':           1,                                  # Num CPUs for variant calling (it only multithreads if you have multiple reference sequences)
-        'mem':           '128*MiB',                          # Memory for variant calling
+        'docker_image':  'niemasd/lofreq:2.1.5',                # Docker image for LoFreq
+        'cpu':           1,                                     # Num CPUs for variant calling (it only multithreads if you have multiple reference sequences)
+        'mem':           '128*MiB',                             # Memory for variant calling
     },
 
     'low_depth_regions': {
-        'docker_image':  'niemasd/low_depth_regions:latest', # Docker image for low_depth_regions
-        'cpu':           1,                                  # Num CPUs for low_depth_regions
-        'mem':           '20*MiB',                           # Memory for low_depth_regions
+        'docker_image':  'niemasd/low_depth_regions:1.0.0',     # Docker image for low_depth_regions
+        'cpu':           1,                                     # Num CPUs for low_depth_regions
+        'mem':           '20*MiB',                              # Memory for low_depth_regions
     },
 
     'minimap2': {
-        'docker_image':  'niemasd/minimap2:latest',          # Docker image for Minimap2
-        'cpu':           32,                                 # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                          # Memory for mapping reads
+        'docker_image':  'niemasd/minimap2:2.20',               # Docker image for Minimap2
+        'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
+        'mem':           '128*MiB',                             # Memory for mapping reads
     },
 
     'minimap2_samtools': {
-        'docker_image':  'niemasd/minimap2_samtools:latest', # Docker image for Minimap2 + samtools
+        'docker_image':  'niemasd/minimap2_samtools:2.20_1.12', # Docker image for Minimap2 + samtools
     },
 
     'samtools': {
-        'docker_image':  'niemasd/samtools:latest',          # Docker image for samtools
-        'cpu_sort':      32,                                 # Num CPUs for sorting BAM
-        'mem_sort':      '100*MiB',                          # Memory for sorting BAM (takes 20 MB on demo)
-        'cpu_pileup':    1,                                  # Num CPUs for generating pileup
-        'mem_pileup':    '50*MiB',                           # Memory for generating pileup (takes 5 MB on demo)
-        'cpu_depth':     1,                                  # Num CPUs for computing depth
-        'mem_depth':     '50*MiB',                           # Memory for computing depth (takes 4 MB on demo)
+        'docker_image':  'niemasd/samtools:1.12',               # Docker image for samtools
+        'cpu_sort':      32,                                    # Num CPUs for sorting BAM
+        'mem_sort':      '256*MiB',                             # Memory for sorting BAM (takes 20 MB on demo)
+        'cpu_pileup':    1,                                     # Num CPUs for generating pileup
+        'mem_pileup':    '50*MiB',                              # Memory for generating pileup (takes 5 MB on demo)
+        'cpu_depth':     1,                                     # Num CPUs for computing depth
+        'mem_depth':     '50*MiB',                              # Memory for computing depth (takes 4 MB on demo)
     },
 }
 
@@ -184,7 +184,9 @@ if __name__ == "__main__":
     args = parse_args()
     out_list = list()
     if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
-        out_list.append('cp_sorted_untrimmed_bam')
+        out_list += ['cp_untrimmed_bam', 'cp_sorted_untrimmed_bam']
+    else:
+        out_list += ['cp_trimmed_bam']
     out_list += ['cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_depth', 'cp_low_depth', 'cp_consensus']
 
     # check run ID (anything except empty string is fine)
@@ -331,25 +333,26 @@ if __name__ == "__main__":
                 exit(1)
         rf_file.write('\n')
 
-    # map reads and sort
-    rf_file.write('    // Map reads and sort\n')
+    # map reads
+    rf_file.write('    // Map reads\n')
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    sorted_trimmed_bam := ')
+        rf_file.write('    trimmed_bam := ')
     else:
-        rf_file.write('    sorted_untrimmed_bam := ')
+        rf_file.write('    untrimmed_bam := ')
     if args.read_mapper == 'bowtie2':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bowtie2_samtools']['docker_image'], TOOL['bowtie2']['mem'], TOOL['bowtie2']['cpu']))
         rf_file.write('        bowtie2-build --threads %d -f "{{ref_fas}}" ref 1>&2\n' % TOOL['bowtie2']['cpu'])
-        rf_file.write('        bowtie2 --threads %d -x ref -U %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['bowtie2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+        rf_file.write('        bowtie2 --threads %d -x ref -U %s | samtools view -bS - > "{{out}}"\n' % (TOOL['bowtie2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
     elif args.read_mapper == 'bwa':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bwa_samtools']['docker_image'], TOOL['bwa']['mem'], TOOL['bwa']['cpu']))
         rf_file.write('        cp "{{ref_fas}}" ref.fas\n')
         rf_file.write('        bwa index ref.fas 1>&2\n')
-        rf_file.write('        bwa mem -t %d ref.fas %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['bwa']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+        rf_file.write('        bwa mem -t %d ref.fas %s | samtools view -bS - > "{{out}}"\n' % (TOOL['bwa']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
     elif args.read_mapper == 'minimap2':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem'], TOOL['minimap2']['cpu']))
-        rf_file.write('        minimap2 -t %d -d ref.mmi "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu'])
-        rf_file.write('        minimap2 -t %d -a -x sr ref.mmi %s | samtools sort --threads %d -o "{{out}}" 1>&2\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs), TOOL['samtools']['cpu_sort']))
+        #rf_file.write('        minimap2 -t %d -d ref.mmi "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu'])
+        #rf_file.write('        minimap2 -t %d -a -x sr ref.mmi %s | samtools view -bS - > "{{out}}"\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
+        rf_file.write('        minimap2 -t %d -a -x sr "{{ref_fas}}" %s | samtools view -bS - > "{{out}}"\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
     else:
         stderr.write("Invalid read mapper: %s\n" % args.read_mapper)
         if args.output != 'stdout':
@@ -357,9 +360,29 @@ if __name__ == "__main__":
         exit(1)
     rf_file.write('    "}\n')
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.untrimmed.bam")' % (args.destination, args.run_id))
+        rf_file.write('    cp_trimmed_bam := files.Copy(trimmed_bam, "%s/%s.trimmed.bam")' % (args.destination, args.run_id))
     else:
-        rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.sorted.untrimmed.bam")' % (args.destination, args.run_id))
+        rf_file.write('    cp_untrimmed_bam := files.Copy(untrimmed_bam, "%s/%s.untrimmed.bam")' % (args.destination, args.run_id))
+    rf_file.write('\n\n')
+
+    # sort mapped reads
+    rf_file.write('    // Sort mapped reads\n')
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        rf_file.write('    sorted_trimmed_bam := ')
+    else:
+        rf_file.write('    sorted_untrimmed_bam := ')
+    rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
+    rf_file.write('        samtools sort --threads %d -O bam -o "{{out}}" "{{' % TOOL['samtools']['cpu_sort'])
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        rf_file.write('trimmed_bam')
+    else:
+        rf_file.write('untrimmed_bam')
+    rf_file.write('}}" 1>&2\n')
+    rf_file.write('    "}\n')
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.trimmed.sorted.bam")' % (args.destination, args.run_id))
+    else:
+        rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.untrimmed.sorted.bam")' % (args.destination, args.run_id))
     rf_file.write('\n\n')
 
     # trim reads using iVar
@@ -379,7 +402,7 @@ if __name__ == "__main__":
     if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
         rf_file.write('    // Sort trimmed BAM\n')
         rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
-        rf_file.write('        samtools sort --threads %d -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
+        rf_file.write('        samtools sort --threads %d -O bam -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
         rf_file.write('    "}\n')
         rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.destination, args.run_id))
         rf_file.write('\n')
