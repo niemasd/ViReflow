@@ -16,8 +16,8 @@ RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
     'reads': {
-        'fastq': {'fastp'}, # trimmers that work on raw reads (FASTQ)
-        'bam':   {'ivar'},  # trimmers that work on mapped reads (BAM)
+        'fastq': {'fastp', 'prinseq'}, # trimmers that work on raw reads (FASTQ)
+        'bam':   {'ivar'},             # trimmers that work on mapped reads (BAM)
     },
     'primers': {
         'bed':   {'ivar'},  # trimmers that use BED primers
@@ -103,6 +103,12 @@ TOOL = {
 
     'minimap2_samtools': {
         'docker_image':  'niemasd/minimap2_samtools:2.20_1.12', # Docker image for Minimap2 + samtools
+    },
+
+    'prinseq': {
+        'docker_image':  'niemasd/prinseq:0.20.4',              # Docker image for PRINSEQ
+        'cpu':           1,                                     # Num CPUs for trimming (PRINSEQ is single-threaded)
+        'mem':           '128*MiB',                             # Memory for trimming (TODO CHECK)
     },
 
     'samtools': {
@@ -324,13 +330,16 @@ if __name__ == "__main__":
             if args.read_trimmer == 'fastp':
                 rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['fastp']['docker_image'], TOOL['fastp']['mem'], TOOL['fastp']['cpu']))
                 rf_file.write('        fastp --thread %d --adapter_fasta "{{primer_fas}}" -i "{{%s}}" -o "{{out}}" 1>&2\n' % (TOOL['fastp']['cpu'], var))
-                rf_file.write('    "}\n')
-                rf_file.write('    cp_%s := files.Copy(%s, "%s/%s.reads.trimmed.%s.fastq")\n' % (fqs[i][0], fqs[i][0], args.destination, args.run_id, var))
+            elif args.read_trimmer == 'prinseq':
+                rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['prinseq']['docker_image'], TOOL['prinseq']['mem'], TOOL['prinseq']['cpu']))
+                rf_file.write('        prinseq-lite.pl -fastq "{{%s}}" -ns_max_n 4 -min_qual_mean 30 -trim_qual_left 30 -trim_qual_right 30 -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "{{out}}"\n' % var)
             else:
                 stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
                 if args.output != 'stdout':
                     rf_file.close(); remove(args.output)
                 exit(1)
+            rf_file.write('    "}\n')
+            rf_file.write('    cp_%s := files.Copy(%s, "%s/%s.reads.trimmed.%s.fastq")\n' % (fqs[i][0], fqs[i][0], args.destination, args.run_id, var))
         rf_file.write('\n')
 
     # map reads
