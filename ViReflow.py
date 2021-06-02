@@ -350,8 +350,6 @@ if __name__ == "__main__":
         rf_file.write('        bwa mem -t %d ref.fas %s | samtools view -bS - > "{{out}}"\n' % (TOOL['bwa']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
     elif args.read_mapper == 'minimap2':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem'], TOOL['minimap2']['cpu']))
-        #rf_file.write('        minimap2 -t %d -d ref.mmi "{{ref_fas}}" 1>&2\n' % TOOL['minimap2']['cpu'])
-        #rf_file.write('        minimap2 -t %d -a -x sr ref.mmi %s | samtools view -bS - > "{{out}}"\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
         rf_file.write('        minimap2 -t %d -a -x sr "{{ref_fas}}" %s | samtools view -bS - > "{{out}}"\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
     else:
         stderr.write("Invalid read mapper: %s\n" % args.read_mapper)
