@@ -24,6 +24,7 @@ READ_TRIMMERS = {
         'fasta': {'fastp'}, # trimmers that use FASTA primers
     }
 }
+READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'ivar', 'lofreq'}
 TOOL = {
@@ -151,9 +152,9 @@ def parse_args():
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu'], help="Max Threads")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
-    parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper")
-    parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer")
-    parser.add_argument('--variant_caller', required=False, type=str, default='ivar', help="Variant Caller")
+    parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
+    parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
+    parser.add_argument('--variant_caller', required=False, type=str, default='ivar', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
