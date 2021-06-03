@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.4'
+VERSION = '1.0.5'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -26,7 +26,7 @@ READ_TRIMMERS = {
 }
 READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
-VARIANT_CALLERS = {'ivar', 'lofreq'}
+VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
 TOOL = {
     'base': {
         'docker_image':  'niemasd/bash:5.1.0',                  # Base Docker image (Alpine with bash)
@@ -50,7 +50,7 @@ TOOL = {
     'bowtie2': {
         'docker_image':  'niemasd/bowtie2:2.4.3',               # Docker image for Bowtie2
         'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                             # Memory for mapping reads (TODO CHECK)
+        'mem':           '128*MiB',                             # Memory for mapping reads
     },
 
     'bowtie2_samtools': {
@@ -60,7 +60,7 @@ TOOL = {
     'bwa': {
         'docker_image':  'niemasd/bwa:0.7.17',                  # Docker image for BWA
         'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                             # Memory for mapping reads (TODO CHECK)
+        'mem':           '128*MiB',                             # Memory for mapping reads
     },
 
     'bwa_samtools': {
@@ -71,6 +71,12 @@ TOOL = {
         'docker_image':  'niemasd/fastp:0.20.1',                # Docker image for fastp
         'cpu':           32,                                    # Num CPUs for trimming
         'mem':           '128*MiB',                             # Memory for trimming
+    },
+
+    'freebayes': {
+        'docker_image':  'niemasd/freebayes:1.3.5',             # Docker image for freebayes
+        'cpu':           1,                                     # Num CPUs for variant calling (multithreading is via a GNU parallel script I won't mess with)
+        'mem':           '128*MiB',                             # Memory for variant calling
     },
 
     'ivar': {
@@ -108,7 +114,7 @@ TOOL = {
     'prinseq': {
         'docker_image':  'niemasd/prinseq:0.20.4',              # Docker image for PRINSEQ
         'cpu':           1,                                     # Num CPUs for trimming (PRINSEQ is single-threaded)
-        'mem':           '128*MiB',                             # Memory for trimming (TODO CHECK)
+        'mem':           '128*MiB',                             # Memory for trimming
     },
 
     'samtools': {
@@ -425,7 +431,10 @@ if __name__ == "__main__":
     # call variants
     rf_file.write('    // Call variants\n')
     rf_file.write('    variants := ')
-    if args.variant_caller == 'ivar':
+    if args.variant_caller == 'freebayes':
+        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['freebayes']['docker_image'], TOOL['freebayes']['mem'], TOOL['freebayes']['cpu']))
+        rf_file.write('        freebayes -f "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
+    elif args.variant_caller == 'ivar':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
         rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
         rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
@@ -462,7 +471,9 @@ if __name__ == "__main__":
     rf_file.write('    // Generate consensus from variants\n')
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bcftools']['docker_image'], TOOL['bcftools']['mem_consensus'], TOOL['bcftools']['cpu_consensus']))
     rf_file.write('        cat "{{variants}}" | grep "^#" > tmp.vcf\n') # get VCF header
-    if args.variant_caller == 'ivar': # get lines that passed and have at least 0.5 alternate frequency
+    if args.variant_caller == 'freebayes': # get lines that passed and are above minimum alternate frequency
+        rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\'[;=]\' \'($8 > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
+    elif args.variant_caller == 'ivar':
         rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\':\' \'($(NF) > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
     elif args.variant_caller == 'lofreq':
         rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\'[;=]\' \'($4 > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
