@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.5'
+VERSION = '1.0.6'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -433,7 +433,7 @@ if __name__ == "__main__":
     rf_file.write('    variants := ')
     if args.variant_caller == 'freebayes':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['freebayes']['docker_image'], TOOL['freebayes']['mem'], TOOL['freebayes']['cpu']))
-        rf_file.write('        freebayes -f "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
+        rf_file.write('        freebayes --min-alternate-fraction 0.001 --pooled-continuous --ploidy 1 -f "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
     elif args.variant_caller == 'ivar':
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
         rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
