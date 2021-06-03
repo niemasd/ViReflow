@@ -36,7 +36,7 @@ TOOL = {
     },
 
     'bcftools': {
-        'docker_image':  'niemasd/bcftools:1.12',               # Docker image for bcftools
+        'docker_image':  'niemasd/bcftools:1.12_1.0',           # Docker image for bcftools
         'cpu_consensus': 1,                                     # Num CPUs for consensus-calling
         'mem_consensus': '20*MiB',                              # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
     },
@@ -65,6 +65,12 @@ TOOL = {
 
     'bwa_samtools': {
         'docker_image':  'niemasd/bwa_samtools:0.7.17_1.12',    # Docker image for BWA + samtools
+    },
+
+    'cutadapt': {
+        'docker_image':  'niemasd/cutadapt:3.4',                # Docker image for Cutadapt
+        'cpu':           32,                                    # Num CPUs for trimming
+        'mem':           '256*MiB',                             # Memory for trimming (TODO CHECK)
     },
 
     'fastp': {
@@ -476,18 +482,7 @@ if __name__ == "__main__":
     # generate consensus from variants and low-depth regions
     rf_file.write('    // Generate consensus from variants\n')
     rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bcftools']['docker_image'], TOOL['bcftools']['mem_consensus'], TOOL['bcftools']['cpu_consensus']))
-    rf_file.write('        cat "{{variants}}" | grep "^#" > tmp.vcf\n') # get VCF header
-    if args.variant_caller == 'freebayes': # get lines that passed and are above minimum alternate frequency
-        rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\'[;=]\' \'($8 > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
-    elif args.variant_caller == 'ivar':
-        rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\':\' \'($(NF) > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
-    elif args.variant_caller == 'lofreq':
-        rf_file.write('        cat "{{variants}}" | grep -v "^#" | awk \'($7 != "FAIL")\' | awk -F\'[;=]\' \'($4 > %f)\' >> tmp.vcf\n' % args.min_alt_freq)
-    else:
-        stderr.write("Invalid variant caller: %s\n" % args.variant_caller)
-        if args.output != 'stdout':
-            rf_file.close(); remove(args.output)
-        exit(1)
+    rf_file.write('        alt_vars.py -i "{{variants}}" -o tmp.vcf -v %s\n' % args.variant_caller)
     rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
     rf_file.write('        cat "{{ref_fas}}" | bcftools consensus -m "{{low_depth}}" tmp.vcf.gz > "{{out}}"\n')
