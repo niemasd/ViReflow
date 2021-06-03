@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.6'
+VERSION = '1.0.7'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -114,6 +114,12 @@ TOOL = {
     'prinseq': {
         'docker_image':  'niemasd/prinseq:0.20.4',              # Docker image for PRINSEQ
         'cpu':           1,                                     # Num CPUs for trimming (PRINSEQ is single-threaded)
+        'mem':           '128*MiB',                             # Memory for trimming
+    },
+
+    'ptrimmer': {
+        'docker_image':  'niemasd/ptrimmer:1.3.4',              # Docker image for pTrimmer
+        'cpu':           1,                                     # Num CPUs for trimming (pTrimmer is single-threaded)
         'mem':           '128*MiB',                             # Memory for trimming
     },
 
