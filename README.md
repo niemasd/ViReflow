@@ -2,19 +2,13 @@
 ViReflow is a tool for constructing elastically-scaling parallelized automated AWS pipelines for viral consensus sequence generation. Given sequence data from a viral sample as well as information about the reference genome and primers, ViReflow generates a [Reflow](https://github.com/grailbio/reflow) file that contains all steps of the workflow, including AWS instance specifications. Because ViReflow is intended to be used with Reflow, the workflows that are developed by ViReflow automatically distribute independent tasks to be run in parallel as well as elastically scale AWS instances based on each individual step of the workflow. ViReflow makes use of compact minimal Docker images for each step of the viral analysis workflow, details about which can be found in the [Niema-Docker](https://github.com/Niema-Docker) GitHub organization.
 
 ## Workflow Summary (TODO NEED TO UPDATE, OUT OF DATE)
-The workflows produced by ViReflow have the following steps:
-* **Map the reads** using [Minimap2](https://github.com/lh3/minimap2)
-    * Uses the [`niemasd/minimap2_samtools`](https://hub.docker.com/repository/docker/niemasd/minimap2_samtools) Docker image
-* **Trim the mapped reads** using [iVar](https://github.com/andersen-lab/ivar)
-    * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
-* **Generate a pile-up** from the trimmed mapped reads using [samtools](http://www.htslib.org/)
-    * Uses the [`niemasd/samtools`](https://hub.docker.com/repository/docker/niemasd/samtools) Docker image
-* **Call variants** from the pile-up using [iVar](https://github.com/andersen-lab/ivar)
-    * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
-* **Call a consensus sequence** from the pile-up using [iVar](https://github.com/andersen-lab/ivar)
-    * Uses the [`niemasd/ivar`](https://hub.docker.com/repository/docker/niemasd/ivar) Docker image
-* **Calculate depth** from the trimmed mapped reads using [samtools](http://www.htslib.org/) (optional, recommended)
-    * Uses the [`niemasd/samtools`](https://hub.docker.com/repository/docker/niemasd/samtools) Docker image
+The workflows produced by ViReflow have the following steps (**^** denotes default choice):
+* **Trim the reads** using [fastp](https://github.com/OpenGene/fastp), **^[iVar](https://github.com/andersen-lab/ivar)**, [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
+* **Map the reads** using [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/), or **^[Minimap2](https://github.com/lh3/minimap2)**
+* **Generate a pile-up** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
+* **Call variants** from the pile-up using [freebayes](https://github.com/freebayes/freebayes), **^[iVar](https://github.com/andersen-lab/ivar)**, or [LoFreq](https://csb5.github.io/lofreq/)
+* **Calculate depth** from the trimmed mapped reads using [samtools](http://www.htslib.org/)
+* **Call a consensus sequence** of high-depth regions from the variants using **[bcftools](http://samtools.github.io/bcftools/bcftools.html)**
 
 ## Installation
 ViReflow is written in Python 3. You can simply download [ViReflow.py](ViReflow.py) to your machine and make it executable:
@@ -31,23 +25,7 @@ While ViReflow itself only depends on Python 3, the pipelines it produces are [R
 ViReflow can be used as follows:
 
 ```
-usage: ViReflow.py [-h] -id RUN_ID -d DESTINATION -rf REFERENCE_FASTA [-rm REFERENCE_MMI] -rg REFERENCE_GFF -p PRIMER_BED [-o OUTPUT] [-mt MAX_THREADS] [--include_depth] [-u] FQ [FQ ...]
-
-flag arguments:
-  -h, --help                                               show this help message and exit
-  -id RUN_ID, --run_id RUN_ID                              Unique Run Identifier (for output file naming)
-  -d DESTINATION, --destination DESTINATION                Destination for Results (s3 folder)
-  -rf REFERENCE_FASTA, --reference_fasta REFERENCE_FASTA   Reference Genome Sequence (s3/http/https/ftp to FASTA)
-  -rm REFERENCE_MMI, --reference_mmi REFERENCE_MMI         Reference Genome Minimap2 Index (s3 to MMI) (default: None)
-  -rg REFERENCE_GFF, --reference_gff REFERENCE_GFF         Reference Genome Annotation (s3/http/https/ftp to GFF3)
-  -p PRIMER_BED, --primer_bed PRIMER_BED                   Primer (s3/http/https/ftp to BED)
-  -o OUTPUT, --output OUTPUT                               Output Reflow File (rf) (default: stdout)
-  -mt MAX_THREADS, --max_threads MAX_THREADS               Max Threads (default: 32)
-  --include_depth                                          Include Depth Calling (default: False)
-  -u, --update                                             Update ViReflow (default: False)
-
-positional arguments:
-  FQ                    Input FASTQ Files (s3 paths; single biological sample)
+TODO REPLACE WITH USAGE
 ```
 
 For extensive details about each command line argument, see the [Command Line Argument Descriptions](../../wiki/Command-Line-Argument-Descriptions) section of the ViReflow wiki.
