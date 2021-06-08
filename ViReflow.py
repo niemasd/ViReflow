@@ -16,12 +16,12 @@ RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
     'reads': {
-        'fastq': {'fastp', 'prinseq'}, # trimmers that work on raw reads (FASTQ)
-        'bam':   {'ivar'},             # trimmers that work on mapped reads (BAM)
+        'fastq': {'fastp', 'prinseq', 'ptrimmer'}, # trimmers that work on raw reads (FASTQ)
+        'bam':   {'ivar'},                         # trimmers that work on mapped reads (BAM)
     },
     'primers': {
-        'bed':   {'ivar'},  # trimmers that use BED primers
-        'fasta': {'fastp'}, # trimmers that use FASTA primers
+        'bed':   {'ivar', 'ptrimmer'},             # trimmers that use BED primers
+        'fasta': {'fastp'},                        # trimmers that use FASTA primers
     }
 }
 READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
@@ -351,6 +351,12 @@ if __name__ == "__main__":
             elif args.read_trimmer == 'prinseq':
                 rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['prinseq']['docker_image'], TOOL['prinseq']['mem'], TOOL['prinseq']['cpu']))
                 rf_file.write('        prinseq-lite.pl -fastq "{{%s}}" -ns_max_n 4 -min_qual_mean 30 -trim_qual_left 30 -trim_qual_right 30 -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "{{out}}"\n' % var)
+            elif args.read_trimmer == 'ptrimmer':
+                rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ptrimmer']['docker_image'], TOOL['ptrimmer']['mem'], TOOL['ptrimmer']['cpu']))
+                rf_file.write('        cp "{{ref_fas}}" ref.fas\n')
+                rf_file.write('        faidx ref.fas > /dev/null\n')
+                rf_file.write('        Bed2Amplicon.py ref.fas "{{primer_bed}}" primers.txt 1>&2\n')
+                rf_file.write('        pTrimmer -t single -a primers.txt -f "{{%s}}" -d "{{out}}" 1>&2\n' % var)
             else:
                 stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
                 if args.output != 'stdout':
