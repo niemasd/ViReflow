@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.7'
+VERSION = '1.0.8'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -177,8 +177,8 @@ def parse_args():
     parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu'], help="Max Threads")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
-    parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
-    parser.add_argument('--variant_caller', required=False, type=str, default='ivar', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
+    parser.add_argument('--read_trimmer', required=False, type=str, default='fastp', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
+    parser.add_argument('--variant_caller', required=False, type=str, default='lofreq', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
@@ -272,13 +272,6 @@ if __name__ == "__main__":
             ref_fasta_url = args.reference_fasta
         else: # assume GenBank accession number
             ref_fasta_url = 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&id=%s&rettype=fasta' % args.reference_fasta
-        try:
-            urlopen(ref_fasta_url)
-        except:
-            stderr.write("Invalid reference genome FASTA: %s\n" % args.reference_fasta)
-            if args.output != 'stdout':
-                rf_file.close(); remove(args.output)
-            exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % ref_fasta_url)
         rf_file.write('    "}\n')
@@ -293,13 +286,6 @@ if __name__ == "__main__":
     if ref_gff_lower.startswith('s3://'): # Amazon S3 path
         rf_file.write('file("%s")' % args.reference_gff)
     else:
-        try:
-            urlopen(args.reference_gff)
-        except:
-            stderr.write("Invalid reference genome FASTA: %s\n" % args.reference_gff)
-            if args.output != 'stdout':
-                rf_file.close(); remove(args.output)
-            exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_gff)
         rf_file.write('    "}\n')
@@ -314,13 +300,6 @@ if __name__ == "__main__":
     if primer_bed_lower.startswith('s3://'): # Amazon S3 path
         rf_file.write('file("%s")' % args.primer_bed)
     else:
-        try:
-            urlopen(args.primer_bed)
-        except:
-            stderr.write("Invalid primer BED: %s" % args.primer_bed)
-            if args.output != 'stdout':
-                rf_file.close(); remove(args.output)
-            exit(1)
         rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
         rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.primer_bed)
         rf_file.write('    "}\n')
