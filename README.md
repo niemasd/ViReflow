@@ -3,10 +3,10 @@ ViReflow is a tool for constructing elastically-scaling parallelized automated A
 
 ## Workflow Summary (TODO NEED TO UPDATE, OUT OF DATE)
 The workflows produced by ViReflow have the following steps (**^** denotes default choice):
-* **Trim the reads** using [fastp](https://github.com/OpenGene/fastp), **^[iVar](https://github.com/andersen-lab/ivar)**, [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
+* **Trim the reads** using **^[fastp](https://github.com/OpenGene/fastp)**, [iVar](https://github.com/andersen-lab/ivar), [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
 * **Map the reads** using [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/), or **^[Minimap2](https://github.com/lh3/minimap2)**
 * **Generate a pile-up** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
-* **Call variants** from the pile-up using [freebayes](https://github.com/freebayes/freebayes), **^[iVar](https://github.com/andersen-lab/ivar)**, or [LoFreq](https://csb5.github.io/lofreq/)
+* **Call variants** from the pile-up using [freebayes](https://github.com/freebayes/freebayes), [iVar](https://github.com/andersen-lab/ivar), or **^[LoFreq](https://csb5.github.io/lofreq/)*
 * **Calculate depth** from the trimmed mapped reads using [samtools](http://www.htslib.org/)
 * **Call a consensus sequence** of high-depth regions from the variants using **[bcftools](http://samtools.github.io/bcftools/bcftools.html)**
 
