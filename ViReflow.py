@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.8'
+VERSION = '1.0.9'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -27,6 +27,13 @@ READ_TRIMMERS = {
 READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
+INSTANCE_INFO = {
+    'docker_image': 'niemasd/vireflow:latest', # TODO CHANGE TO VERSION ONCE STABLE
+    'cpu':          1,                         # TODO SEE IF WE CAN PLAY WITH THIS
+    'mem':          '1*GiB',                   # TODO INCREASE IF NEEDED
+}
+
+# this is only helpful if we separate each step, but for mass batch runs, it makes more sense to have each sample in a single step
 TOOL = {
     'base': {
         'docker_image':  'niemasd/bash:5.1.0',                  # Base Docker image (Alpine with bash)
@@ -174,7 +181,7 @@ def parse_args():
     parser.add_argument('-rg', '--reference_gff', required=True, type=str, help="Reference Genome Annotation (s3/http/https/ftp to GFF3)")
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
-    parser.add_argument('-mt', '--max_threads', required=False, type=int, default=TOOL['minimap2']['cpu'], help="Max Threads")
+    parser.add_argument('-t', '--threads', required=False, type=int, default=1, help="Number of Threads")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
@@ -206,34 +213,29 @@ def parse_args():
 if __name__ == "__main__":
     # parse user args and prepare run
     args = parse_args()
-    out_list = list()
-    if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
-        out_list += ['cp_untrimmed_bam', 'cp_sorted_untrimmed_bam']
-    else:
-        out_list += ['cp_trimmed_bam']
-    out_list += ['cp_sorted_trimmed_bam', 'cp_pileup', 'cp_variants', 'cp_depth', 'cp_low_depth', 'cp_consensus']
-
-    # check run ID (anything except empty string is fine)
+    if args.threads < 1:
+        stderr.write("Invalid number of threads: %s\n" % args.threads); exit(1)
     if len(args.run_id) == 0:
         stderr.write("Run ID cannot be empty string\n"); exit(1)
     for c in args.run_id:
         if c not in RUN_ID_ALPHABET:
             stderr.write("Invalid symbol in Run ID: %s\n" % c); exit(1)
 
-    # check max threads
-    if args.max_threads < 1:
-        stderr.write("Invalid maximum number of threads: %d\n" % args.max_threads); exit(1)
-    for k1 in TOOL:
-        for k2 in TOOL[k1]:
-            if k2.startswith('cpu') and TOOL[k1][k2] != 1: # some tools only run single-threaded
-                TOOL[k1][k2] = args.max_threads
+    # check input files (FASTQs, ref FASTA, ref GFF, and primer BED)
+    input_files = [
+        ('ref_fas',    '%s.reference.fas' % args.run_id, args.reference_fasta),
+        ('ref_gff',    '%s.reference.gff' % args.run_id, args.reference_gff),
+        ('primer_bed', '%s.primers.bed'   % args.run_id, args.primer_bed),
+    ]
+    input_files += [('fq%d' % (i+1), '%s.fq%d.fastq' % (args.run_id, i+1), f) for i,f in enumerate(args.fastq_files)]
 
-    # check destination folder
+    # check destination
     if not args.destination.lower().startswith('s3://'):
         stderr.write("Invalid output s3 directory: %s\n" % args.destination); exit(1)
     args.destination = args.destination.rstrip('/')
+    final_output_s3 = "%s/%s.tar.gz" % (args.destination, args.run_id)
 
-    # handle output file
+    # initialize output file
     if args.output == 'stdout':
         from sys import stdout as rf_file
     else:
@@ -245,106 +247,88 @@ if __name__ == "__main__":
     rf_file.write('val Main = {\n')
     rf_file.write('    files := make("$/files")\n\n')
 
-    # handle input FASTQs
-    fqs = list() # (Reflow variable, s3 path) tuples
-    for i,fq in enumerate(args.fastq_files):
-        if not fq.lower().startswith('s3://'):
-            stderr.write("Invalid s3 path to FASTQ file: %s" % fq)
-            if args.output != 'stdout':
-                rf_file.close(); remove(args.output)
-            exit(1)
-        fqs.append(('fq%d' % (i+1), fq))
-    rf_file.write('    // Use the following FASTQ s3 path(s)\n')
-    for tup in fqs:
-        rf_file.write('    %s := file("%s")\n' % tup)
+    # handle input files that are S3 paths
+    tmp = False # check if header has been written
+    for rf_var, local_fn, p in input_files:
+        if p.lower().startswith('s3://'):
+            if not tmp:
+                rf_file.write('    // Using the following S3 input files\n'); tmp = True
+            rf_file.write('    %s := file("%s")\n' % (rf_var, p))
+    if tmp:
+        rf_file.write('\n')
+
+    # begin main exec
+    outdir = "%s_output" % args.run_id
+    rf_file.write('    // Main ViReflow pipeline execution\n')
+    rf_file.write('    out_file := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (INSTANCE_INFO['docker_image'], INSTANCE_INFO['mem'], INSTANCE_INFO['cpu']))
+
+    # copy input files locally
+    local_fns = dict()
+    rf_file.write('        # Copy input files locally\n')
+    rf_file.write('        mkdir "%s"\n' % outdir)
+    for rf_var, local_fn, p in input_files:
+        local_fns[rf_var] = "%s/%s" % (outdir, local_fn)
+        rf_file.write('        ')
+        if p.startswith('s3://'):
+            rf_file.write('cp "{{%s}}" "%s"\n' % (rf_var, local_fns[rf_var]))
+        else:
+            if p.split('://')[0].lower() not in {'http', 'https', 'ftp'}:
+                if rf_var == 'ref_fas': # assume GenBank accession number
+                    p = 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&id=%s&rettype=fasta' % p
+                else:
+                    stderr.write("Invalid input file: %s\n" % p)
+                    if args.output != 'stdout':
+                        rf_file.close(); remove(args.output)
+                    exit(1)
+            rf_file.write('wget -O "%s" "%s"\n' % (local_fns[rf_var], p))
     rf_file.write('\n')
-    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        out_list = ['cp_trimmed_%s' % var for var,s3 in fqs] + out_list
-
-    # handle reference sequence
-    ref_fas_lower = args.reference_fasta.lower()
-    rf_file.write('    // Use reference FASTA file: %s\n' % args.reference_fasta)
-    rf_file.write('    ref_fas := ')
-    if ref_fas_lower.startswith('s3://'): # Amazon S3 path
-        rf_file.write('file("%s")' % args.reference_fasta)
-    else:
-        if ref_fas_lower.startswith('http://') or ref_fas_lower.startswith('https://') or ref_fas_lower.startswith('ftp://'): # URL of FASTA
-            ref_fasta_url = args.reference_fasta
-        else: # assume GenBank accession number
-            ref_fasta_url = 'http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nucleotide&id=%s&rettype=fasta' % args.reference_fasta
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % ref_fasta_url)
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_fas := files.Copy(ref_fas, "%s/%s.reference.fas")' % (args.destination, args.run_id))
-        out_list.append('cp_ref_fas')
-    rf_file.write('\n\n')
-
-    # handle reference annotation
-    ref_gff_lower = args.reference_gff.lower()
-    rf_file.write('    // Use reference GFF3 file: %s\n' % args.reference_gff)
-    rf_file.write('    ref_gff := ')
-    if ref_gff_lower.startswith('s3://'): # Amazon S3 path
-        rf_file.write('file("%s")' % args.reference_gff)
-    else:
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.reference_gff)
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_ref_gff := files.Copy(ref_gff, "%s/%s.reference.gff")' % (args.destination, args.run_id))
-        out_list.append('cp_ref_gff')
-    rf_file.write('\n\n')
-
-    # handle primer BED
-    primer_bed_lower = args.primer_bed.lower()
-    rf_file.write('    // Use primer BED file: %s\n' % args.primer_bed)
-    rf_file.write('    primer_bed := ')
-    if primer_bed_lower.startswith('s3://'): # Amazon S3 path
-        rf_file.write('file("%s")' % args.primer_bed)
-    else:
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['base']['docker_image'], TOOL['base']['mem_wget'], TOOL['base']['cpu_wget']))
-        rf_file.write('        wget -O "{{out}}" "%s" 1>&2\n' % args.primer_bed)
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_primer_bed := files.Copy(primer_bed, "%s/%s.primers.bed")' % (args.destination, args.run_id))
-        out_list.append('cp_primer_bed')
-    rf_file.write('\n\n')
 
     # handle primer FASTA (if needed)
     if args.read_trimmer in READ_TRIMMERS['primers']['fasta']:
-        rf_file.write('    // Create primer FASTA file\n')
-        rf_file.write('    primer_fas := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bedtools']['docker_image'], TOOL['bedtools']['mem_getfasta'], TOOL['bedtools']['cpu_getfasta']))
-        rf_file.write('        bedtools getfasta -fi "{{ref_fas}}" -bed "{{primer_bed}}" -fo "{{out}}" 1>&2\n')
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_primer_fas := files.Copy(primer_fas, "%s/%s.primers.fas")' % (args.destination, args.run_id))
-        rf_file.write('\n\n')
-        out_list.append('cp_primer_fas')
+        local_fns['primer_fas'] = "%s/%s.primers.fas" % (outdir, args.run_id)
+        rf_file.write('        # Create primer FASTA file\n')
+        rf_file.write('        bedtools getfasta -fi "%s" -bed "%s" -fo "%s" 1>&2\n' % (local_fns['ref_fas'], local_fns['primer_bed'], local_fns['primer_fas']))
+        rf_file.write('\n')
+
+    # handle primer TXT (if needed, just pTrimmer for now)
+    if args.read_trimmer == 'ptrimmer':
+        local_fns['primer_txt'] = "%s/%s.primers.txt" % (outdir, args.run_id)
+        rf_file.write('        # Create primer TXT file\n')
+        rf_file.write('        faidx "%s" > /dev/null\n' % local_fns['ref_fas'])
+        rf_file.write('        Bed2Amplicon.py "%s" "%s" "%s" 1>&2\n' % (local_fns['ref_fas'], local_fns['primer_bed'], local_fns['primer_txt']))
+        rf_file.write('\n')
 
     # trim unmapped reads (if using FASTQ trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    // Trim reads\n')
-        for i in range(len(fqs)):
-            var,s3 = fqs[i]
-            fqs[i] = ('trimmed_%s' % var, s3)
-            rf_file.write('    trimmed_%s := ' % var)
+        rf_file.write('        # Trim reads using %s\n' % args.read_trimmer)
+        for rf_var, local_fn, p in input_files:
+            if not rf_var.startswith('fq'):
+                continue
+            trimmed_rf_var = 'trimmed_%s' % rf_var
+            local_fns[trimmed_rf_var] = "%s/%s.%s.trimmed.fastq" % (outdir, args.run_id, rf_var)
+            rf_file.write('        ')
             if args.read_trimmer == 'fastp':
-                rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['fastp']['docker_image'], TOOL['fastp']['mem'], TOOL['fastp']['cpu']))
-                rf_file.write('        fastp --thread %d --adapter_fasta "{{primer_fas}}" -i "{{%s}}" -o "{{out}}" 1>&2\n' % (TOOL['fastp']['cpu'], var))
+                rf_file.write('fastp --thread %d --adapter_fasta "%s" -i "%s" -o "%s" 1>&2\n' % (args.threads, local_fns['primer_fas'], local_fn, local_fns[trimmed_rf_var]))
             elif args.read_trimmer == 'prinseq':
-                rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['prinseq']['docker_image'], TOOL['prinseq']['mem'], TOOL['prinseq']['cpu']))
-                rf_file.write('        prinseq-lite.pl -fastq "{{%s}}" -ns_max_n 4 -min_qual_mean 30 -trim_qual_left 30 -trim_qual_right 30 -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "{{out}}"\n' % var)
+                rf_file.write('prinseq-lite.pl -fastq "%s" -ns_max_n 4 -min_qual_mean 30 -trim_qual_left 30 -trim_qual_right 30 -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "%s"\n' % (local_fn, local_fns[trimmed_rf_var]))
             elif args.read_trimmer == 'ptrimmer':
-                rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ptrimmer']['docker_image'], TOOL['ptrimmer']['mem'], TOOL['ptrimmer']['cpu']))
-                rf_file.write('        cp "{{ref_fas}}" ref.fas\n')
-                rf_file.write('        faidx ref.fas > /dev/null\n')
-                rf_file.write('        Bed2Amplicon.py ref.fas "{{primer_bed}}" primers.txt 1>&2\n')
-                rf_file.write('        pTrimmer -t single -a primers.txt -f "{{%s}}" -d "{{out}}" 1>&2\n' % var)
+                rf_file.write('pTrimmer -t single -a "%s" -f "%s" -d "%s" 1>&2\n' % (local_fns['primer_txt'], local_fn, local_fns[trimmed_rf_var]))
             else:
                 stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
                 if args.output != 'stdout':
                     rf_file.close(); remove(args.output)
                 exit(1)
-            rf_file.write('    "}\n')
-            rf_file.write('    cp_%s := files.Copy(%s, "%s/%s.reads.trimmed.%s.fastq")\n' % (fqs[i][0], fqs[i][0], args.destination, args.run_id, var))
         rf_file.write('\n')
 
+    # map reads
+    rf_file.write('        # Map reads using %s\n' % args.read_mapper)
+
+    # end main exec
+    rf_file.write('    "}\n')
+    rf_file.write('}\n')
+    print(local_fns) # TODO DELETE WHEN DONE
+
+    '''
     # map reads
     rf_file.write('    // Map reads\n')
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
@@ -477,5 +461,6 @@ if __name__ == "__main__":
 
     # finish Main
     rf_file.write('    // Finish workflow\n')
-    rf_file.write('    (%s)\n' % ', '.join(out_list))
+    rf_file.write('    (%s)\n' % ', '.join(['OUT','LIST']))
     rf_file.write('}\n')
+    '''
