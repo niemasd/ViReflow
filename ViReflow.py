@@ -182,6 +182,7 @@ def parse_args():
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-t', '--threads', required=False, type=int, default=1, help="Number of Threads")
+    parser.add_argument('-cl', '--compression_level', required=False, type=int, default=1, help="Compression Level (1 = fastest, 9 = best)")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
@@ -190,6 +191,21 @@ def parse_args():
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3 paths; single biological sample)")
     args = parser.parse_args()
     args.variant_caller = args.variant_caller.lower()
+
+    # check run ID is valid
+    if len(args.run_id) == 0:
+        stderr.write("Run ID cannot be empty string\n"); exit(1)
+    for c in args.run_id:
+        if c not in RUN_ID_ALPHABET:
+            stderr.write("Invalid symbol in Run ID: %s\n" % c); exit(1)
+
+    # check number of threads is valid
+    if args.threads < 1:
+        stderr.write("Invalid number of threads: %s\n" % args.threads); exit(1)
+
+    # check compression level is valid
+    if args.compression_level < 1 or args.compression_level > 9:
+        stderr.write("Invalid compression level: %s\n" % args.compression_level); exit(1)
 
     # check read mapper selection is valid
     args.read_mapper = args.read_mapper.lower()
@@ -211,15 +227,8 @@ def parse_args():
 
 # main content
 if __name__ == "__main__":
-    # parse user args and prepare run
+    # parse user args
     args = parse_args()
-    if args.threads < 1:
-        stderr.write("Invalid number of threads: %s\n" % args.threads); exit(1)
-    if len(args.run_id) == 0:
-        stderr.write("Run ID cannot be empty string\n"); exit(1)
-    for c in args.run_id:
-        if c not in RUN_ID_ALPHABET:
-            stderr.write("Invalid symbol in Run ID: %s\n" % c); exit(1)
 
     # check input files (FASTQs, ref FASTA, ref GFF, and primer BED)
     input_files = [
@@ -320,147 +329,115 @@ if __name__ == "__main__":
                 exit(1)
         rf_file.write('\n')
 
-    # map reads
-    rf_file.write('        # Map reads using %s\n' % args.read_mapper)
-
-    # end main exec
-    rf_file.write('    "}\n')
-    rf_file.write('}\n')
-    print(local_fns) # TODO DELETE WHEN DONE
-
-    '''
-    # map reads
-    rf_file.write('    // Map reads\n')
+    # organize FASTQ filenames to map
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    trimmed_bam := ')
+        local_fq_fns_to_map = [local_fns[k] for k in local_fns if k.startswith('trimmed_fq')]
     else:
-        rf_file.write('    untrimmed_bam := ')
+        local_fq_fns_to_map = [local_fns[k] for k in local_fns if k.startswith('fq')]
+
+    # map reads
+    local_fns['trimmed_bam'] = "%s/%s.trimmed.bam" % (outdir, args.run_id)
+    rf_file.write('        # Map reads using %s\n' % args.read_mapper)
+    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
+        curr_bam_var = 'trimmed_bam'
+    else:
+        local_fns['untrimmed_bam'] = "%s/%s.untrimmed.bam" % (outdir, args.run_id)
+        curr_bam_var = 'untrimmed_bam'
     if args.read_mapper == 'bowtie2':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bowtie2_samtools']['docker_image'], TOOL['bowtie2']['mem'], TOOL['bowtie2']['cpu']))
-        rf_file.write('        bowtie2-build --threads %d -f "{{ref_fas}}" ref 1>&2\n' % TOOL['bowtie2']['cpu'])
-        rf_file.write('        bowtie2 --threads %d -x ref -U %s | samtools view -bS - > "{{out}}"\n' % (TOOL['bowtie2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
+        rf_file.write('        bowtie2-build --threads %d -f "%s" ref 1>&2\n' % (args.threads, local_fns['ref_fas']))
+        rf_file.write('        bowtie2 --threads %d -x ref -U "%s" | samtools view -bS - > "%s"\n' % (args.threads, ','.join(local_fq_fns_to_map), local_fns[curr_bam_var]))
     elif args.read_mapper == 'bwa':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bwa_samtools']['docker_image'], TOOL['bwa']['mem'], TOOL['bwa']['cpu']))
-        rf_file.write('        cp "{{ref_fas}}" ref.fas\n')
-        rf_file.write('        bwa index ref.fas 1>&2\n')
-        rf_file.write('        bwa mem -t %d ref.fas %s | samtools view -bS - > "{{out}}"\n' % (TOOL['bwa']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
+        rf_file.write('        bwa index "%s" 1>&2\n' % local_fns['ref_fas'])
+        rf_file.write('        bwa mem -t %d "%s" %s | samtools view -bS - > "%s"\n' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map), local_fns[curr_bam_var]))
     elif args.read_mapper == 'minimap2':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['minimap2_samtools']['docker_image'], TOOL['minimap2']['mem'], TOOL['minimap2']['cpu']))
-        rf_file.write('        minimap2 -t %d -a -x sr "{{ref_fas}}" %s | samtools view -bS - > "{{out}}"\n' % (TOOL['minimap2']['cpu'], ' '.join('"{{%s}}"' % var for var,s3 in fqs)))
+        rf_file.write('        minimap2 -t %d -a -x sr "%s" %s | samtools view -bS - > "%s"\n' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map), local_fns[curr_bam_var]))
     else:
         stderr.write("Invalid read mapper: %s\n" % args.read_mapper)
         if args.output != 'stdout':
             rf_file.close(); remove(args.output)
         exit(1)
-    rf_file.write('    "}\n')
-    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    cp_trimmed_bam := files.Copy(trimmed_bam, "%s/%s.trimmed.bam")' % (args.destination, args.run_id))
-    else:
-        rf_file.write('    cp_untrimmed_bam := files.Copy(untrimmed_bam, "%s/%s.untrimmed.bam")' % (args.destination, args.run_id))
-    rf_file.write('\n\n')
+    rf_file.write('\n')
 
-    # sort mapped reads
-    rf_file.write('    // Sort mapped reads\n')
+	# sort mapped reads
+    local_fns['trimmed_sorted_bam'] = "%s/%s.trimmed.sorted.bam" % (outdir, args.run_id)
+    rf_file.write('        # Sort mapped reads\n')
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    sorted_trimmed_bam := ')
+        curr_sorted_bam_var = 'trimmed_sorted_bam'
     else:
-        rf_file.write('    sorted_untrimmed_bam := ')
-    rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
-    rf_file.write('        samtools sort --threads %d -O bam -o "{{out}}" "{{' % TOOL['samtools']['cpu_sort'])
-    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('trimmed_bam')
-    else:
-        rf_file.write('untrimmed_bam')
-    rf_file.write('}}" 1>&2\n')
-    rf_file.write('    "}\n')
-    if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.trimmed.sorted.bam")' % (args.destination, args.run_id))
-    else:
-        rf_file.write('    cp_sorted_untrimmed_bam := files.Copy(sorted_untrimmed_bam, "%s/%s.untrimmed.sorted.bam")' % (args.destination, args.run_id))
-    rf_file.write('\n\n')
+        local_fns['untrimmed_sorted_bam'] = "%s/%s.untrimmed.sorted.bam" % (outdir, args.run_id)
+        curr_sorted_bam_var = 'untrimmed_sorted_bam'
+    rf_file.write('        samtools sort --threads %d -O bam -o "%s" "%s" 1>&2\n' % (args.threads, local_fns[curr_sorted_bam_var], local_fns[curr_bam_var]))
+    rf_file.write('\n')
 
-    # trim reads using iVar
+    # trim mapped reads (if using BAM trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
+        rf_file.write('        # Trim mapped reads using %s\n' % args.read_trimmer)
         if args.read_trimmer == 'ivar':
-            rf_file.write('    // Trim reads using iVar\n')
-            rf_file.write('    trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_trim'], TOOL['ivar']['cpu_trim']))
-            rf_file.write('        ivar trim -x 5 -e -i "{{sorted_untrimmed_bam}}" -b "{{primer_bed}}" -p trimmed 1>&2 && mv trimmed.bam "{{out}}"\n')
-            rf_file.write('    "}\n\n')
+            rf_file.write('        ivar trim -x 5 -e -i "%s" -b "%s" -p "%s" 1>&2\n' % (local_fns['untrimmed_sorted_bam'], local_fns['primer_bed'], local_fns['trimmed_bam'].rstrip('.bam')))
         else:
             stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
             if args.output != 'stdout':
                 rf_file.close(); remove(args.output)
             exit(1)
+        rf_file.write('\n')
 
     # sort trimmed BAM (if using BAM trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
-        rf_file.write('    // Sort trimmed BAM\n')
-        rf_file.write('    sorted_trimmed_bam := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_sort'], TOOL['samtools']['cpu_sort']))
-        rf_file.write('        samtools sort --threads %d -O bam -o "{{out}}" "{{trimmed_bam}}" 1>&2\n' % TOOL['samtools']['cpu_sort'])
-        rf_file.write('    "}\n')
-        rf_file.write('    cp_sorted_trimmed_bam := files.Copy(sorted_trimmed_bam, "%s/%s.sorted.trimmed.bam")\n' % (args.destination, args.run_id))
+        rf_file.write('        # Sort trimmed mapped reads\n')
+        rf_file.write('        samtools sort --threads %d -O bam -o "%s" "%s" 1>&2\n' % (args.threads, local_fns['trimmed_sorted_bam'], local_fns['trimmed_bam']))
         rf_file.write('\n')
 
     # generate pile-up from sorted trimmed BAM
-    rf_file.write('    // Generate pile-up from sorted trimmed BAM\n')
-    rf_file.write('    pileup := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_pileup'], TOOL['samtools']['cpu_pileup']))
-    rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
-    rf_file.write('    "}\n')
-    rf_file.write('    cp_pileup := files.Copy(pileup, "%s/%s.pileup.txt")\n' % (args.destination, args.run_id))
+    local_fns['pileup_txt'] = "%s/%s.pileup.txt" % (outdir, args.run_id)
+    rf_file.write('        # Generate pile-up from sorted trimmed BAM\n')
+    rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "%s" "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['pileup_txt']))
     rf_file.write('\n')
 
     # call variants
-    rf_file.write('    // Call variants\n')
-    rf_file.write('    variants := ')
+    local_fns['variants_vcf'] = "%s/%s.variants.vcf" % (outdir, args.run_id)
+    rf_file.write('        # Call variants using %s"\n' % args.variant_caller)
     if args.variant_caller == 'freebayes':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['freebayes']['docker_image'], TOOL['freebayes']['mem'], TOOL['freebayes']['cpu']))
-        rf_file.write('        freebayes --min-alternate-fraction 0.001 --pooled-continuous --ploidy 1 -f "{{ref_fas}}" "{{sorted_trimmed_bam}}" > "{{out}}"\n')
+        rf_file.write('        freebayes --min-alternate-fraction 0.001 --pooled-continuous --ploidy 1 -f "%s" "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['variants_vcf']))
     elif args.variant_caller == 'ivar':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['ivar']['docker_image'], TOOL['ivar']['mem_variants'], TOOL['ivar']['cpu_variants']))
-        rf_file.write('        cp "{{ref_fas}}" ref.fas && cp "{{ref_gff}}" ref.gff\n')
-        rf_file.write('        cat "{{pileup}}" | ivar variants -r ref.fas -g ref.gff -p tmp.tsv -m 10 1>&2\n')
-        rf_file.write('        ivar_variants_to_vcf.py tmp.tsv "{{out}}" 1>&2\n')
+        local_fns['variants_tsv'] = "%s/%s.variants.tsv" % (outdir, args.run_id)
+        rf_file.write('        cat "%s" | ivar variants -r "%s" -g "%s" -p "%s" -m 10 1>&2\n' % (local_fns['pileup_txt'], local_fns['ref_fas'], local_fns['ref_gff'], local_fns['variants_tsv']))
+        rf_file.write('        ivar_variants_to_vcf.py "%s" "%s" 1>&2\n' % (local_fns['variants_tsv'], local_fns['variants_vcf']))
     elif args.variant_caller == 'lofreq':
-        rf_file.write('exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['lofreq']['docker_image'], TOOL['lofreq']['mem'], TOOL['lofreq']['cpu']))
-        rf_file.write('        lofreq call -f "{{ref_fas}}" --call-indels "{{sorted_trimmed_bam}}" > "{{out}}"\n')
+        rf_file.write('        lofreq call -f "%s" --call-indels "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['variants_vcf']))
     else:
         stderr.write("Invalid variant caller: %s\n" % args.variant_caller)
         if args.output != 'stdout':
             rf_file.close(); remove(args.output)
         exit(1)
-    rf_file.write('    "}\n')
-    rf_file.write('    cp_variants := files.Copy(variants, "%s/%s.variants.vcf")\n' % (args.destination, args.run_id))
     rf_file.write('\n')
 
     # call depth
-    rf_file.write('    // Call depth from trimmed BAM\n')
-    rf_file.write('    depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['samtools']['docker_image'], TOOL['samtools']['mem_depth'], TOOL['samtools']['cpu_depth']))
-    rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "{{sorted_trimmed_bam}}" > "{{out}}"\n')
-    rf_file.write('    "}\n')
-    rf_file.write('    cp_depth := files.Copy(depth, "%s/%s.depth.txt")\n' % (args.destination, args.run_id))
+    local_fns['depth_txt'] = "%s/%s.depth.txt" % (outdir, args.run_id)
+    rf_file.write('        # Call depth from trimmed BAM\n')
+    rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "%s" > "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['depth_txt']))
     rf_file.write('\n')
 
-    # compute low-depth regions
-    rf_file.write('    // Find low-depth regions\n')
-    rf_file.write('    low_depth := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['low_depth_regions']['docker_image'], TOOL['low_depth_regions']['mem'], TOOL['low_depth_regions']['cpu']))
-    rf_file.write('        low_depth_regions "{{depth}}" "{{out}}" 10 1>&2\n') # minimum depth of 10
-    rf_file.write('    "}\n')
-    rf_file.write('    cp_low_depth := files.Copy(low_depth, "%s/%s.lowdepth.tsv")\n' % (args.destination, args.run_id))
+    # find low-depth regions
+    local_fns['low_depth_tsv'] = "%s/%s.low_depth.tsv" % (outdir, args.run_id)
+    rf_file.write('        # Find low-depth regions\n')
+    rf_file.write('        low_depth_regions "%s" "%s" 10 1>&2\n' % (local_fns['depth_txt'], local_fns['low_depth_tsv'])) # minimum depth of 10
     rf_file.write('\n')
 
-    # generate consensus from variants and low-depth regions
-    rf_file.write('    // Generate consensus from variants\n')
-    rf_file.write('    consensus := exec(image := "%s", mem := %s, cpu := %d) (out file) {"\n' % (TOOL['bcftools']['docker_image'], TOOL['bcftools']['mem_consensus'], TOOL['bcftools']['cpu_consensus']))
-    rf_file.write('        alt_vars.py -i "{{variants}}" -o tmp.vcf -v %s\n' % args.variant_caller)
+    # generate consensus sequence
+    local_fns['consensus_fas'] = "%s/%s.consensus.fas" % (outdir, args.run_id)
+    rf_file.write('        # Generate consensus sequence\n')
+    rf_file.write('        alt_vars.py -i "%s" -o tmp.vcf -v %s\n' % (local_fns['variants_vcf'], args.variant_caller))
     rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
-    rf_file.write('        cat "{{ref_fas}}" | bcftools consensus -m "{{low_depth}}" tmp.vcf.gz > "{{out}}"\n')
-    rf_file.write('    "}\n')
-    rf_file.write('    cp_consensus := files.Copy(consensus, "%s/%s.consensus.fas")\n' % (args.destination, args.run_id))
+    rf_file.write('        cat "%s" | bcftools consensus -m "%s" tmp.vcf.gz > "%s"\n' % (local_fns['ref_fas'], local_fns['low_depth_tsv'], local_fns['consensus_fas']))
     rf_file.write('\n')
 
-    # finish Main
-    rf_file.write('    // Finish workflow\n')
-    rf_file.write('    (%s)\n' % ', '.join(['OUT','LIST']))
+    # archive + compress output files
+    rf_file.write('        # Compress output files\n')
+    rf_file.write('        tar cvf - "%s" | pigz -%d -p %d > "{{out}}"\n' % (outdir, args.compression_level, args.threads))
+
+    # end main exec, copy output file, and end run file
+    rf_file.write('    "}\n')
+    rf_file.write('    cp_out_file := files.Copy(out_file, "%s")\n' % final_output_s3)
+    rf_file.write('    (cp_out_file)\n')
     rf_file.write('}\n')
-    '''
