@@ -29,122 +29,8 @@ READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
 INSTANCE_INFO = {
     'docker_image': 'niemasd/vireflow:latest', # TODO CHANGE TO VERSION ONCE STABLE
-    'cpu':          1,                         # TODO SEE IF WE CAN PLAY WITH THIS
-    'mem':          '1*GiB',                   # TODO INCREASE IF NEEDED
-}
-
-# this is only helpful if we separate each step, but for mass batch runs, it makes more sense to have each sample in a single step
-TOOL = {
-    'base': {
-        'docker_image':  'niemasd/bash:5.1.0',                  # Base Docker image (Alpine with bash)
-        'cpu_wget':      1,                                     # Num CPUs for wget
-        'mem_wget':      '50*MiB',                              # Memory for wget
-        'disk':          '3*GiB',                               # Overall, shouldn't need more than 3 GB of disk
-    },
-
-    'bcftools': {
-        'docker_image':  'niemasd/bcftools:1.12_1.0',           # Docker image for bcftools
-        'cpu_consensus': 1,                                     # Num CPUs for consensus-calling
-        'mem_consensus': '20*MiB',                              # Memory for consensus-calling (NEED TO DEMO TO GET BETTER GAUGE)
-    },
-
-    'bedtools': {
-        'docker_image':  'niemasd/bedtools:2.30.0',             # Docker image for bedtools
-        'cpu_getfasta':  1,                                     # Num CPUs for bedtools getfasta
-        'mem_getfasta':  '20*MiB',                              # Memory for bedtools getfasta
-    },
-
-    'bowtie2': {
-        'docker_image':  'niemasd/bowtie2:2.4.3',               # Docker image for Bowtie2
-        'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                             # Memory for mapping reads
-    },
-
-    'bowtie2_samtools': {
-        'docker_image':  'niemasd/bowtie2_samtools:2.4.3_1.12', # Docker image for Bowtie2 + samtools
-    },
-
-    'bwa': {
-        'docker_image':  'niemasd/bwa:0.7.17',                  # Docker image for BWA
-        'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                             # Memory for mapping reads
-    },
-
-    'bwa_samtools': {
-        'docker_image':  'niemasd/bwa_samtools:0.7.17_1.12',    # Docker image for BWA + samtools
-    },
-
-    'cutadapt': {
-        'docker_image':  'niemasd/cutadapt:3.4',                # Docker image for Cutadapt
-        'cpu':           32,                                    # Num CPUs for trimming
-        'mem':           '256*MiB',                             # Memory for trimming (TODO CHECK)
-    },
-
-    'fastp': {
-        'docker_image':  'niemasd/fastp:0.20.1',                # Docker image for fastp
-        'cpu':           32,                                    # Num CPUs for trimming
-        'mem':           '128*MiB',                             # Memory for trimming
-    },
-
-    'freebayes': {
-        'docker_image':  'niemasd/freebayes:1.3.5',             # Docker image for freebayes
-        'cpu':           1,                                     # Num CPUs for variant calling (multithreading is via a GNU parallel script I won't mess with)
-        'mem':           '128*MiB',                             # Memory for variant calling
-    },
-
-    'ivar': {
-        'docker_image':  'niemasd/ivar:1.3.1',                  # Docker image for iVar
-        'cpu_trim':      1,                                     # Num CPUs for trimming (iVar is still single-threaded)
-        'mem_trim':      '50*MiB',                              # Memory for trimming (takes 7 MB on demo)
-        'cpu_variants':  1,                                     # Num CPUs for variant-calling (iVar is still single-threaded)
-        'mem_variants':  '20*MiB',                              # Memory for variant-calling (takes 1 MB on demo)
-        'cpu_consensus': 1,                                     # Num CPUs for consensus-calling (iVar is still single-threaded)
-        'mem_consensus': '20*MiB',                              # Memory for consensus-calling (takes 1 MB on demo)
-    },
-
-    'lofreq': {
-        'docker_image':  'niemasd/lofreq:2.1.5',                # Docker image for LoFreq
-        'cpu':           1,                                     # Num CPUs for variant calling (it only multithreads if you have multiple reference sequences)
-        'mem':           '128*MiB',                             # Memory for variant calling
-    },
-
-    'low_depth_regions': {
-        'docker_image':  'niemasd/low_depth_regions:1.0.0',     # Docker image for low_depth_regions
-        'cpu':           1,                                     # Num CPUs for low_depth_regions
-        'mem':           '20*MiB',                              # Memory for low_depth_regions
-    },
-
-    'minimap2': {
-        'docker_image':  'niemasd/minimap2:2.20',               # Docker image for Minimap2
-        'cpu':           32,                                    # Num CPUs for mapping reads (can be increased/decreased by user as desired)
-        'mem':           '128*MiB',                             # Memory for mapping reads
-    },
-
-    'minimap2_samtools': {
-        'docker_image':  'niemasd/minimap2_samtools:2.20_1.12', # Docker image for Minimap2 + samtools
-    },
-
-    'prinseq': {
-        'docker_image':  'niemasd/prinseq:0.20.4',              # Docker image for PRINSEQ
-        'cpu':           1,                                     # Num CPUs for trimming (PRINSEQ is single-threaded)
-        'mem':           '128*MiB',                             # Memory for trimming
-    },
-
-    'ptrimmer': {
-        'docker_image':  'niemasd/ptrimmer:1.3.4',              # Docker image for pTrimmer
-        'cpu':           1,                                     # Num CPUs for trimming (pTrimmer is single-threaded)
-        'mem':           '128*MiB',                             # Memory for trimming
-    },
-
-    'samtools': {
-        'docker_image':  'niemasd/samtools:1.12',               # Docker image for samtools
-        'cpu_sort':      32,                                    # Num CPUs for sorting BAM
-        'mem_sort':      '256*MiB',                             # Memory for sorting BAM (takes 20 MB on demo)
-        'cpu_pileup':    1,                                     # Num CPUs for generating pileup
-        'mem_pileup':    '50*MiB',                              # Memory for generating pileup (takes 5 MB on demo)
-        'cpu_depth':     1,                                     # Num CPUs for computing depth
-        'mem_depth':     '50*MiB',                              # Memory for computing depth (takes 4 MB on demo)
-    },
+    'mem':          '1*GiB',                   # TODO FIND APPROPRIATE VALUE
+    'disk':         '3*GiB',                   # TODO FIND APPROPRIATE VALUE
 }
 
 # convert a ViReflow version string to a tuple of integers
@@ -229,6 +115,7 @@ def parse_args():
 if __name__ == "__main__":
     # parse user args
     args = parse_args()
+    INSTANCE_INFO['cpu'] = args.threads
 
     # check input files (FASTQs, ref FASTA, ref GFF, and primer BED)
     input_files = [
@@ -252,7 +139,7 @@ if __name__ == "__main__":
     rf_file.write('// Run ID: %s\n' % args.run_id)
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
     rf_file.write('// ViReflow command: %s\n' % ' '.join(argv))
-    rf_file.write('@requires(disk := %s)\n' % TOOL['base']['disk'])
+    rf_file.write('@requires(disk := %s)\n' % INSTANCE_INFO['disk'])
     rf_file.write('val Main = {\n')
     rf_file.write('    files := make("$/files")\n\n')
 
@@ -430,6 +317,11 @@ if __name__ == "__main__":
     rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
     rf_file.write('        cat "%s" | bcftools consensus -m "%s" tmp.vcf.gz > "%s"\n' % (local_fns['ref_fas'], local_fns['low_depth_tsv'], local_fns['consensus_fas']))
+    rf_file.write('\n')
+
+    # remove redundant files before compressing output
+    rf_file.write('        # Remove redundant output files before compressing\n')
+    rf_file.write('        rm */*trimmed.bam\n') # remove unsorted BAMs
     rf_file.write('\n')
 
     # archive + compress output files
