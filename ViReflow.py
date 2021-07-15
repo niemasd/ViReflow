@@ -32,6 +32,7 @@ INSTANCE_INFO = {
     'mem':          '1*GiB',                   # TODO FIND APPROPRIATE VALUE
     'disk':         '3*GiB',                   # TODO FIND APPROPRIATE VALUE
 }
+DATE_COMMAND_BASH = 'echo "[$(date +"%Y-%m-%d %T")]"'
 
 # convert a ViReflow version string to a tuple of integers
 def parse_version(s):
@@ -165,7 +166,10 @@ if __name__ == "__main__":
 
     # copy input files locally
     local_fns = dict()
+    local_fns['vireflow_log'] = "%s/vireflow.log" % outdir
     rf_file.write('        # Copy input files locally\n')
+    rf_file.write('        %s "Starting ViReflow %s pipeline" >> %s\n' % (DATE_COMMAND_BASH, VERSION, local_fns['vireflow_log']))
+    rf_file.write('        %s "Copying input files locally" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        mkdir "%s"\n' % outdir)
     for rf_var, local_fn, p in input_files:
         local_fns[rf_var] = "%s/%s" % (outdir, local_fn)
@@ -188,6 +192,7 @@ if __name__ == "__main__":
     if args.read_trimmer in READ_TRIMMERS['primers']['fasta']:
         local_fns['primer_fas'] = "%s/%s.primers.fas" % (outdir, args.run_id)
         rf_file.write('        # Create primer FASTA file\n')
+        rf_file.write('        %s "Creating primer FASTA file" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        bedtools getfasta -fi "%s" -bed "%s" -fo "%s" 1>&2\n' % (local_fns['ref_fas'], local_fns['primer_bed'], local_fns['primer_fas']))
         rf_file.write('\n')
 
@@ -195,6 +200,7 @@ if __name__ == "__main__":
     if args.read_trimmer == 'ptrimmer':
         local_fns['primer_txt'] = "%s/%s.primers.txt" % (outdir, args.run_id)
         rf_file.write('        # Create primer TXT file\n')
+        rf_file.write('        %s "Creating primer TXT file" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        faidx "%s" > /dev/null\n' % local_fns['ref_fas'])
         rf_file.write('        Bed2Amplicon.py "%s" "%s" "%s" 1>&2\n' % (local_fns['ref_fas'], local_fns['primer_bed'], local_fns['primer_txt']))
         rf_file.write('\n')
@@ -202,6 +208,7 @@ if __name__ == "__main__":
     # trim unmapped reads (if using FASTQ trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
         rf_file.write('        # Trim reads using %s\n' % args.read_trimmer)
+        rf_file.write('        %s "Trimming reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_trimmer, local_fns['vireflow_log']))
         for rf_var, local_fn, p in input_files:
             if not rf_var.startswith('fq'):
                 continue
@@ -229,7 +236,11 @@ if __name__ == "__main__":
 
     # map reads
     local_fns['trimmed_bam'] = "%s/%s.trimmed.bam" % (outdir, args.run_id)
-    rf_file.write('        # Map reads using %s\n' % args.read_mapper)
+    rf_file.write('        # Map reads using %s' % args.read_mapper)
+    if args.mapped_read_cap is not None:
+        rf_file.write(' (cap at %d successfully-mapped reads)' % args.mapped_read_cap)
+    rf_file.write('\n')
+    rf_file.write('        %s "Mapping reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_mapper, local_fns['vireflow_log']))
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
         curr_bam_var = 'trimmed_bam'
     else:
@@ -256,6 +267,7 @@ if __name__ == "__main__":
 	# sort mapped reads
     local_fns['trimmed_sorted_bam'] = "%s/%s.trimmed.sorted.bam" % (outdir, args.run_id)
     rf_file.write('        # Sort mapped reads\n')
+    rf_file.write('        %s "Sorting mapped reads" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
         curr_sorted_bam_var = 'trimmed_sorted_bam'
     else:
@@ -267,6 +279,7 @@ if __name__ == "__main__":
     # trim mapped reads (if using BAM trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
         rf_file.write('        # Trim mapped reads using %s\n' % args.read_trimmer)
+        rf_file.write('        %s "Trimming reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_trimmer, local_fns['vireflow_log']))
         if args.read_trimmer == 'ivar':
             rf_file.write('        ivar trim -x 5 -e -i "%s" -b "%s" -p "%s" 1>&2\n' % (local_fns['untrimmed_sorted_bam'], local_fns['primer_bed'], local_fns['trimmed_bam'].rstrip('.bam')))
         else:
@@ -279,18 +292,21 @@ if __name__ == "__main__":
     # sort trimmed BAM (if using BAM trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['bam']:
         rf_file.write('        # Sort trimmed mapped reads\n')
+        rf_file.write('        %s "Sorting trimmed mapped reads" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        samtools sort --threads %d -O bam -o "%s" "%s" 1>&2\n' % (args.threads, local_fns['trimmed_sorted_bam'], local_fns['trimmed_bam']))
         rf_file.write('\n')
 
     # generate pile-up from sorted trimmed BAM
     local_fns['pileup_txt'] = "%s/%s.pileup.txt" % (outdir, args.run_id)
     rf_file.write('        # Generate pile-up from sorted trimmed BAM\n')
+    rf_file.write('        %s "Generating pile-up from sorted trimmed BAM" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "%s" "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['pileup_txt']))
     rf_file.write('\n')
 
     # call variants
     local_fns['variants_vcf'] = "%s/%s.variants.vcf" % (outdir, args.run_id)
     rf_file.write('        # Call variants using %s"\n' % args.variant_caller)
+    rf_file.write('        %s "Calling variants using %s" >> %s\n' % (DATE_COMMAND_BASH, args.variant_caller, local_fns['vireflow_log']))
     if args.variant_caller == 'freebayes':
         rf_file.write('        freebayes --min-alternate-fraction 0.001 --pooled-continuous --ploidy 1 -f "%s" "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['variants_vcf']))
     elif args.variant_caller == 'ivar':
@@ -309,18 +325,21 @@ if __name__ == "__main__":
     # call depth
     local_fns['depth_txt'] = "%s/%s.depth.txt" % (outdir, args.run_id)
     rf_file.write('        # Call depth from trimmed BAM\n')
+    rf_file.write('        %s "Calling depth from trimmed BAM" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "%s" > "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['depth_txt']))
     rf_file.write('\n')
 
     # find low-depth regions
     local_fns['low_depth_tsv'] = "%s/%s.low_depth.tsv" % (outdir, args.run_id)
     rf_file.write('        # Find low-depth regions\n')
+    rf_file.write('        %s "Finding low-depth regions" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        low_depth_regions "%s" "%s" 10 1>&2\n' % (local_fns['depth_txt'], local_fns['low_depth_tsv'])) # minimum depth of 10
     rf_file.write('\n')
 
     # generate consensus sequence
     local_fns['consensus_fas'] = "%s/%s.consensus.fas" % (outdir, args.run_id)
     rf_file.write('        # Generate consensus sequence\n')
+    rf_file.write('        %s "Generating consensus sequence" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        alt_vars.py -i "%s" -o tmp.vcf -v %s\n' % (local_fns['variants_vcf'], args.variant_caller))
     rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
@@ -329,11 +348,13 @@ if __name__ == "__main__":
 
     # remove redundant files before compressing output
     rf_file.write('        # Remove redundant output files before compressing\n')
+    rf_file.write('        %s "Removing redundant output files before compressing" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        rm */*trimmed.bam\n') # remove unsorted BAMs
     rf_file.write('\n')
 
     # archive + compress output files
     rf_file.write('        # Compress output files\n')
+    rf_file.write('        %s "Compressing output files" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
     rf_file.write('        tar cvf - "%s" | pigz -%d -p %d > "{{out}}"\n' % (outdir, args.compression_level, args.threads))
 
     # end main exec, copy output file, and end run file
