@@ -166,11 +166,11 @@ if __name__ == "__main__":
 
     # copy input files locally
     local_fns = dict()
-    local_fns['vireflow_log'] = "%s/vireflow.log" % outdir
+    local_fns['vireflow_log'] = "%s/%s.vireflow.log" % (outdir, args.run_id)
     rf_file.write('        # Copy input files locally\n')
+    rf_file.write('        mkdir "%s"\n' % outdir)
     rf_file.write('        %s "Starting ViReflow %s pipeline" >> %s\n' % (DATE_COMMAND_BASH, VERSION, local_fns['vireflow_log']))
     rf_file.write('        %s "Copying input files locally" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        mkdir "%s"\n' % outdir)
     for rf_var, local_fn, p in input_files:
         local_fns[rf_var] = "%s/%s" % (outdir, local_fn)
         rf_file.write('        ')
@@ -185,7 +185,7 @@ if __name__ == "__main__":
                     if args.output != 'stdout':
                         rf_file.close(); remove(args.output)
                     exit(1)
-            rf_file.write('wget -O "%s" "%s"\n' % (local_fns[rf_var], p))
+            rf_file.write('wget -q -O "%s" "%s"\n' % (local_fns[rf_var], p))
     rf_file.write('\n')
 
     # handle primer FASTA (if needed)
@@ -240,7 +240,10 @@ if __name__ == "__main__":
     if args.mapped_read_cap is not None:
         rf_file.write(' (cap at %d successfully-mapped reads)' % args.mapped_read_cap)
     rf_file.write('\n')
-    rf_file.write('        %s "Mapping reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_mapper, local_fns['vireflow_log']))
+    rf_file.write('        %s "Mapping reads using %s' % (DATE_COMMAND_BASH, args.read_mapper))
+    if args.mapped_read_cap is not None:
+        rf_file.write(' (cap at %d successfully-mapped reads)' % args.mapped_read_cap)
+    rf_file.write('" >> %s\n' % local_fns['vireflow_log'])
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
         curr_bam_var = 'trimmed_bam'
     else:
@@ -261,7 +264,10 @@ if __name__ == "__main__":
         exit(1)
     if args.mapped_read_cap is not None:
         rf_file.write(' | samhead %d successful' % args.mapped_read_cap)
-    rf_file.write(' | samtools view -bS - > "%s"\n' % local_fns[curr_bam_var])
+    rf_file.write(' | samtools view -bS - > "%s"' % local_fns[curr_bam_var])
+    if args.mapped_read_cap is not None:
+        rf_file.write(' || true') # samhead truncation seems to cause non-zero exit code in read mapper
+    rf_file.write('\n')
     rf_file.write('\n')
 
 	# sort mapped reads
