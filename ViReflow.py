@@ -69,6 +69,7 @@ def parse_args():
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
     parser.add_argument('-t', '--threads', required=False, type=int, default=1, help="Number of Threads")
     parser.add_argument('-cl', '--compression_level', required=False, type=int, default=1, help="Compression Level (1 = fastest, 9 = best)")
+    parser.add_argument('--mapped_read_cap', required=False, type=int, default=None, help="Successfully-Mapped Read Cap")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
@@ -92,6 +93,10 @@ def parse_args():
     # check compression level is valid
     if args.compression_level < 1 or args.compression_level > 9:
         stderr.write("Invalid compression level: %s\n" % args.compression_level); exit(1)
+
+    # check 
+    if args.mapped_read_cap is not None and args.mapped_read_cap < 1:
+        stderr.write("Invalid mapped read cap: %s\n" % args.mapped_read_cap); exit(1)
 
     # check read mapper selection is valid
     args.read_mapper = args.read_mapper.lower()
@@ -232,17 +237,20 @@ if __name__ == "__main__":
         curr_bam_var = 'untrimmed_bam'
     if args.read_mapper == 'bowtie2':
         rf_file.write('        bowtie2-build --threads %d -f "%s" ref 1>&2\n' % (args.threads, local_fns['ref_fas']))
-        rf_file.write('        bowtie2 --threads %d -x ref -U "%s" | samtools view -bS - > "%s"\n' % (args.threads, ','.join(local_fq_fns_to_map), local_fns[curr_bam_var]))
+        rf_file.write('        bowtie2 --threads %d -x ref -U "%s"' % (args.threads, ','.join(local_fq_fns_to_map)))
     elif args.read_mapper == 'bwa':
         rf_file.write('        bwa index "%s" 1>&2\n' % local_fns['ref_fas'])
-        rf_file.write('        bwa mem -t %d "%s" %s | samtools view -bS - > "%s"\n' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map), local_fns[curr_bam_var]))
+        rf_file.write('        bwa mem -t %d "%s" %s' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map)))
     elif args.read_mapper == 'minimap2':
-        rf_file.write('        minimap2 -t %d -a -x sr "%s" %s | samtools view -bS - > "%s"\n' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map), local_fns[curr_bam_var]))
+        rf_file.write('        minimap2 -t %d -a -x sr "%s" %s' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map)))
     else:
         stderr.write("Invalid read mapper: %s\n" % args.read_mapper)
         if args.output != 'stdout':
             rf_file.close(); remove(args.output)
         exit(1)
+    if args.mapped_read_cap is not None:
+        rf_file.write(' | samhead %d successful' % args.mapped_read_cap)
+    rf_file.write(' | samtools view -bS - > "%s"\n' % local_fns[curr_bam_var])
     rf_file.write('\n')
 
 	# sort mapped reads
