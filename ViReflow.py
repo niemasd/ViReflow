@@ -75,6 +75,7 @@ def parse_args():
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
     parser.add_argument('--variant_caller', required=False, type=str, default='lofreq', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
+    parser.add_argument('--optional_pangolin', action="store_true", help="Run Pangolin (optional)")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
     args = parser.parse_args()
@@ -351,6 +352,14 @@ if __name__ == "__main__":
     rf_file.write('        bcftools index tmp.vcf.gz\n')
     rf_file.write('        cat "%s" | bcftools consensus -m "%s" tmp.vcf.gz > "%s"\n' % (local_fns['ref_fas'], local_fns['low_depth_tsv'], local_fns['consensus_fas']))
     rf_file.write('\n')
+
+    # optional: run pangolin
+    if args.optional_pangolin:
+        local_fns['pangolin_csv'] = "%s/%s.pangolin.lineage_report.csv" % (outdir, args.run_id)
+        rf_file.write('        # Run pangolin (optional)\n')
+        rf_file.write('        %s "Running pangolin (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        pangolin --threads %d --outfile "%s" "%s"\n' % (args.threads, local_fns['pangolin_csv'], local_fns['consensus_fas']))
+        rf_file.write('\n')
 
     # remove redundant files before compressing output
     rf_file.write('        # Remove redundant output files before compressing\n')
