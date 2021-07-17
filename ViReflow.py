@@ -75,9 +75,10 @@ def parse_args():
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
     parser.add_argument('--variant_caller', required=False, type=str, default='lofreq', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
-    parser.add_argument('--optional_coronaspades', action="store_true", help="Run coronaSPAdes (optional)")
-    parser.add_argument('--optional_pangolin', action="store_true", help="Run Pangolin (optional)")
-    parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
+    parser.add_argument('--optional_pangolin', action='store_true', help="Run Pangolin (optional)")
+    parser.add_argument('--optional_spades_coronaspades', action='store_true', help="Run SPAdes in coronaSPAdes mode (optional)")
+    parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help="Run SPAdes in rnaviralSPAdes mode (optional)")
+    parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
     args = parser.parse_args()
     args.variant_caller = args.variant_caller.lower()
@@ -363,7 +364,7 @@ if __name__ == "__main__":
         rf_file.write('\n')
 
     # optional: convert trimmed BAM to FASTQ
-    if args.optional_coronaspades: # add other SPAdes version booleans here
+    if args.optional_spades_coronaspades or args.optional_spades_rnaviralspades: # add other SPAdes version booleans here
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
         rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
         rf_file.write('        %s "Converting trimmed sorted BAM to FASTQ (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
@@ -371,13 +372,21 @@ if __name__ == "__main__":
         rf_file.write('\n')
 
     # optional: run SPAdes (coronaSPAdes mode)
-    if args.optional_coronaspades:
-        local_fns['coronaspades_targz'] = "%s/%s.coronaspades.output.tar.gz" % (outdir, args.run_id)
+    if args.optional_spades_coronaspades:
+        local_fns['coronaspades_targz'] = "%s/%s.spades.coronaspades.output.tar.gz" % (outdir, args.run_id)
         rf_file.write('        # Run coronaSPAdes (optional)\n')
         rf_file.write('        %s "Running coronaSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        coronaspades.py -s "%s" -o "coronaspades_out"\n' % local_fns['trimmed_sorted_fastq'])
         rf_file.write('        tar -cf - "coronaspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['coronaspades_targz']))
-        rf_file.write('        rm -rf "coronaspades_out"\n')
+        rf_file.write('\n')
+
+    # optional: run SPAdes (rnaviralSPAdes mode)
+    if args.optional_spades_rnaviralspades:
+        local_fns['rnaviralspades_targz'] = "%s/%s.spades.rnaviralspades.output.tar.gz" % (outdir, args.run_id)
+        rf_file.write('        # Run rnaviralSPAdes (optional)\n')
+        rf_file.write('        %s "Running rnaviralSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        rnaviralspades.py -s "%s" -o "rnaviralspades_out"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        tar -cf - "rnaviralspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['rnaviralspades_targz']))
         rf_file.write('\n')
 
     # remove redundant files before compressing output
