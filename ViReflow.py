@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.10'
+VERSION = '1.0.11'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -28,9 +28,9 @@ READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
 INSTANCE_INFO = {
-    'docker_image': 'niemasd/vireflow:%s' % VERSION, # TODO CHANGE TO VERSION ONCE STABLE
-    'mem':          '1*GiB',                   # TODO FIND APPROPRIATE VALUE
-    'disk':         '3*GiB',                   # TODO FIND APPROPRIATE VALUE
+    'docker_image': 'niemasd/vireflow:%s' % 'latest',#VERSION, # TODO
+    'mem':          '1*GiB',
+    'disk':         '3*GiB',
 }
 DATE_COMMAND_BASH = 'echo "[$(date +"%Y-%m-%d %T")]"'
 
@@ -75,6 +75,7 @@ def parse_args():
     parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
     parser.add_argument('--variant_caller', required=False, type=str, default='lofreq', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
+    parser.add_argument('--optional_coronaspades', action="store_true", help="Run coronaSPAdes (optional)")
     parser.add_argument('--optional_pangolin', action="store_true", help="Run Pangolin (optional)")
     parser.add_argument('-u', '--update', action="store_true", help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
@@ -361,6 +362,24 @@ if __name__ == "__main__":
         rf_file.write('        pangolin --threads %d --outfile "%s" "%s"\n' % (args.threads, local_fns['pangolin_csv'], local_fns['consensus_fas']))
         rf_file.write('\n')
 
+    # optional: convert trimmed BAM to FASTQ
+    if args.optional_coronaspades: # add other SPAdes version booleans here
+        local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
+        rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
+        rf_file.write('        %s "Converting trimmed sorted BAM to FASTQ (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        bedtools bamtofastq -i "%s" -fq "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['trimmed_sorted_fastq']))
+        rf_file.write('\n')
+
+    # optional: run SPAdes (coronaSPAdes mode)
+    if args.optional_coronaspades:
+        local_fns['coronaspades_targz'] = "%s/%s.coronaspades.output.tar.gz" % (outdir, args.run_id)
+        rf_file.write('        # Run coronaSPAdes (optional)\n')
+        rf_file.write('        %s "Running coronaSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        coronaspades.py -s "%s" -o "coronaspades_out"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        tar -cf - "coronaspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['coronaspades_targz']))
+        rf_file.write('        rm -rf "coronaspades_out"\n')
+        rf_file.write('\n')
+
     # remove redundant files before compressing output
     rf_file.write('        # Remove redundant output files before compressing\n')
     rf_file.write('        %s "Removing redundant output files before compressing" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
@@ -370,7 +389,7 @@ if __name__ == "__main__":
     # archive + compress output files
     rf_file.write('        # Compress output files\n')
     rf_file.write('        %s "Compressing output files" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        tar cvf - "%s" | pigz -%d -p %d > "{{out}}"\n' % (outdir, args.compression_level, args.threads))
+    rf_file.write('        tar cf - "%s" | pigz -%d -p %d > "{{out}}"\n' % (outdir, args.compression_level, args.threads))
 
     # end main exec, copy output file, and end run file
     rf_file.write('    "}\n')
