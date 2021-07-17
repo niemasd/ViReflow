@@ -28,7 +28,7 @@ READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
 INSTANCE_INFO = {
-    'docker_image': 'niemasd/vireflow:%s' % 'latest',#VERSION, # TODO
+    'docker_image': 'niemasd/vireflow:%s' % VERSION,
     'mem':          '1*GiB',
     'disk':         '3*GiB',
 }
