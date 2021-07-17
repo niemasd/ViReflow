@@ -77,6 +77,7 @@ def parse_args():
     parser.add_argument('--variant_caller', required=False, type=str, default='lofreq', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
     parser.add_argument('--optional_pangolin', action='store_true', help="Run Pangolin (optional)")
     parser.add_argument('--optional_spades_coronaspades', action='store_true', help="Run SPAdes in coronaSPAdes mode (optional)")
+    parser.add_argument('--optional_spades_metaviralspades', action='store_true', help="Run SPAdes in metaviralSPAdes mode (optional)")
     parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help="Run SPAdes in rnaviralSPAdes mode (optional)")
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
@@ -364,7 +365,7 @@ if __name__ == "__main__":
         rf_file.write('\n')
 
     # optional: convert trimmed BAM to FASTQ
-    if args.optional_spades_coronaspades or args.optional_spades_rnaviralspades: # add other SPAdes version booleans here
+    if args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades: # add other SPAdes version booleans here
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
         rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
         rf_file.write('        %s "Converting trimmed sorted BAM to FASTQ (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
@@ -378,6 +379,15 @@ if __name__ == "__main__":
         rf_file.write('        %s "Running coronaSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        coronaspades.py -s "%s" -o "coronaspades_out"\n' % local_fns['trimmed_sorted_fastq'])
         rf_file.write('        tar -cf - "coronaspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['coronaspades_targz']))
+        rf_file.write('\n')
+
+    # optional: run SPAdes (metaviralSPAdes mode)
+    if args.optional_spades_metaviralspades:
+        local_fns['metaviralspades_targz'] = "%s/%s.spades.metaviralspades.output.tar.gz" % (outdir, args.run_id)
+        rf_file.write('        # Run metaviralSPAdes (optional)\n')
+        rf_file.write('        %s "Running metaviralSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        metaviralspades.py -s "%s" -o "metaviralspades_out"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        tar -cf - "metaviralspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['metaviralspades_targz']))
         rf_file.write('\n')
 
     # optional: run SPAdes (rnaviralSPAdes mode)
