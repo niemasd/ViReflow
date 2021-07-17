@@ -377,7 +377,7 @@ if __name__ == "__main__":
         local_fns['coronaspades_targz'] = "%s/%s.spades.coronaspades.output.tar.gz" % (outdir, args.run_id)
         rf_file.write('        # Run coronaSPAdes (optional)\n')
         rf_file.write('        %s "Running coronaSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-        rf_file.write('        coronaspades.py -s "%s" -o "coronaspades_out"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        coronaspades.py --threads %d -s "%s" -o "coronaspades_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
         rf_file.write('        tar -cf - "coronaspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['coronaspades_targz']))
         rf_file.write('\n')
 
@@ -386,7 +386,7 @@ if __name__ == "__main__":
         local_fns['metaviralspades_targz'] = "%s/%s.spades.metaviralspades.output.tar.gz" % (outdir, args.run_id)
         rf_file.write('        # Run metaviralSPAdes (optional)\n')
         rf_file.write('        %s "Running metaviralSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-        rf_file.write('        metaviralspades.py -s "%s" -o "metaviralspades_out"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        metaviralspades.py --threads %d -s "%s" -o "metaviralspades_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
         rf_file.write('        tar -cf - "metaviralspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['metaviralspades_targz']))
         rf_file.write('\n')
 
@@ -395,7 +395,7 @@ if __name__ == "__main__":
         local_fns['rnaviralspades_targz'] = "%s/%s.spades.rnaviralspades.output.tar.gz" % (outdir, args.run_id)
         rf_file.write('        # Run rnaviralSPAdes (optional)\n')
         rf_file.write('        %s "Running rnaviralSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-        rf_file.write('        rnaviralspades.py -s "%s" -o "rnaviralspades_out"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        rnaviralspades.py --threads %d -s "%s" -o "rnaviralspades_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
         rf_file.write('        tar -cf - "rnaviralspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['rnaviralspades_targz']))
         rf_file.write('\n')
 
