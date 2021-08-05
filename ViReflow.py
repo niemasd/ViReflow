@@ -4,11 +4,14 @@ ViReflow: An elastically-scaling parallelized AWS pipeline for viral consensus s
 '''
 
 # imports
+from csv import reader
 from json import load as jload
 from os import remove
-from sys import argv, stderr
+from sys import stderr
+from time import localtime, strftime
 from urllib.request import urlopen
 import argparse
+import sys
 
 # useful constants
 VERSION = '1.0.12'
@@ -34,6 +37,11 @@ INSTANCE_INFO = {
 }
 DATE_COMMAND_BASH = 'echo "[$(date +"%Y-%m-%d %T")]"'
 
+def clear_argv(keep_first_arg=True):
+    tmp = sys.argv[0]; sys.argv.clear()
+    if keep_first_arg:
+        sys.argv.append(tmp)
+
 # convert a ViReflow version string to a tuple of integers
 def parse_version(s):
     return tuple(int(v) for v in s.split('.'))
@@ -57,12 +65,12 @@ def update_vireflow():
 # parse user args
 def parse_args():
     # check if user wants to update ViralMSA
-    if '-u' in argv or '--update' in argv:
+    if '-u' in sys.argv or '--update' in sys.argv:
         update_vireflow()
 
     # use argparse to parse user arguments
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-id', '--run_id', required=True, type=str, help="Unique Run Identifier (for output file naming)")
+    parser.add_argument('-id', '--run_id', required=False, type=str, default=strftime('%Y-%m-%d.%H-%M-%S', localtime()), help="Unique Run Identifier (for output file naming)")
     parser.add_argument('-d', '--destination', required=True, type=str, help="Destination for Results (s3 folder)")
     parser.add_argument('-rf', '--reference_fasta', required=True, type=str, help="Reference Genome Sequence (s3/http/https/ftp to FASTA)")
     parser.add_argument('-rg', '--reference_gff', required=True, type=str, help="Reference Genome Annotation (s3/http/https/ftp to GFF3)")
@@ -82,7 +90,6 @@ def parse_args():
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
     args = parser.parse_args()
-    args.variant_caller = args.variant_caller.lower()
 
     # check run ID is valid
     if len(args.run_id) == 0:
@@ -99,7 +106,7 @@ def parse_args():
     if args.compression_level < 1 or args.compression_level > 9:
         stderr.write("Invalid compression level: %s\n" % args.compression_level); exit(1)
 
-    # check 
+    # check read cap
     if args.mapped_read_cap is not None and args.mapped_read_cap < 1:
         stderr.write("Invalid mapped read cap: %s\n" % args.mapped_read_cap); exit(1)
 
@@ -127,6 +134,33 @@ def main():
     args = parse_args()
     INSTANCE_INFO['cpu'] = args.threads
 
+    # if CSV instead of FASTQ, run main() for each CSV
+    if args.fastq_files[0].lower().endswith('.csv'):
+        if len(args.fastq_files) != 1:
+            stderr.write("If running in CSV mode, must only provide one positional argument\n"); exit(1)
+        argv_minus_csv = [s for s in sys.argv if s != args.fastq_files[0]]
+        id_ind = -1; o_ind = -1
+        if '-id' in argv_minus_csv:
+            id_ind = argv_minus_csv.index('-id')
+        elif '--run_id' in argv_minus_csv:
+            id_ind = argv_minus_csv.index('--run_id')
+        if id_ind != -1:
+            argv_minus_csv.pop(id_ind); argv_minus_csv.pop(id_ind)
+        if '-o' in argv_minus_csv:
+            o_ind = argv_minus_csv.index('-o')
+        elif '--output' in argv_minus_csv:
+            o_ind = argv_minus_csv.index('--output')
+        if o_ind != -1:
+            argv_minus_csv.pop(o_ind); argv_minus_csv.pop(o_ind)
+        for row in reader(open(args.fastq_files[0])):
+            if len(row) < 3:
+                stderr.write("Invalid ViReflow sample CSV\n"); exit(1)
+            parts = [s.replace('\ufeff','').strip() for s in row]
+            clear_argv(keep_first_arg=False)
+            sys.argv += argv_minus_csv + ['-o', '%s.rf' % parts[0], '-id'] + parts
+            main()
+        exit()
+
     # check input files (FASTQs, ref FASTA, ref GFF, and primer BED)
     input_files = [
         ('ref_fas',    '%s.reference.fas' % args.run_id, args.reference_fasta),
@@ -148,7 +182,7 @@ def main():
         rf_file = open(args.output, 'w')
     rf_file.write('// Run ID: %s\n' % args.run_id)
     rf_file.write('// Created using ViReflow %s\n' % VERSION)
-    rf_file.write('// ViReflow command: %s\n' % ' '.join(argv))
+    rf_file.write('// ViReflow command: %s\n' % ' '.join(sys.argv))
     rf_file.write('@requires(disk := %s)\n' % INSTANCE_INFO['disk'])
     rf_file.write('val Main = {\n')
     rf_file.write('    files := make("$/files")\n\n')
@@ -418,8 +452,6 @@ def main():
 
 # GUI
 def run_gui():
-    def clear_argv():
-        tmp = argv[0]; argv.clear(); argv.append(tmp)
     try:
         # imports
         from tkinter import Button, Checkbutton, END, Entry, Frame, IntVar, Label, OptionMenu, StringVar, Tk
@@ -453,12 +485,12 @@ def run_gui():
         root.mainloop()
     except:
         print("ERROR: Unable to import Tkinter", file=stderr); exit(1)
-    if len(argv) == 1:
+    if len(sys.argv) == 1:
         exit()
 
 # when script is executed
 if __name__ == "__main__":
-    if len(argv) == 1:
+    if len(sys.argv) == 1:
         run_gui()
     else:
         main()
