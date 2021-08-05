@@ -683,7 +683,7 @@ def run_gui():
                     sys.argv.append('--optional_spades_metaviralspades')
                 if check_rnaviralspades_var.get() == 1:
                     sys.argv.append('--optional_spades_rnaviralspades')
-                sys.argv.append(button_csv['text'].lstrip(button_csvprefix).strip())
+                sys.argv.append(button_csv['text'].lstrip(button_csv_prefix).strip())
                 try:
                     root.destroy()
                 except:
