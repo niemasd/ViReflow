@@ -11,7 +11,7 @@ from urllib.request import urlopen
 import argparse
 
 # useful constants
-VERSION = '1.0.11'
+VERSION = '1.0.12'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -121,8 +121,8 @@ def parse_args():
     # user args are valid, so return
     return args
 
-# main content
-if __name__ == "__main__":
+# main function
+def main():
     # parse user args
     args = parse_args()
     INSTANCE_INFO['cpu'] = args.threads
@@ -415,3 +415,50 @@ if __name__ == "__main__":
     rf_file.write('    cp_out_file := files.Copy(out_file, "%s")\n' % final_output_s3)
     rf_file.write('    (cp_out_file)\n')
     rf_file.write('}\n')
+
+# GUI
+def run_gui():
+    def clear_argv():
+        tmp = argv[0]; argv.clear(); argv.append(tmp)
+    try:
+        # imports
+        from tkinter import Button, Checkbutton, END, Entry, Frame, IntVar, Label, OptionMenu, StringVar, Tk
+        from tkinter.filedialog import askdirectory, askopenfilename
+
+        # helper function to make a popup
+        def gui_popup(message, title=None):
+            popup = Tk()
+            if title:
+                popup.wm_title(title)
+            label = Label(popup, text=message)
+            label.pack()
+            button_close = Button(popup, text="Close", command=popup.destroy)
+            button_close.pack(padx=3, pady=3)
+            popup.mainloop()
+
+        # create applet
+        root = Tk()
+        root.geometry("600x400")
+
+        # set up main frame
+        frame = Frame(root)
+        frame.pack()
+
+        # add header
+        header = Label(frame, text="ViReflow v%s" % VERSION, font=('Arial',24))
+        header.pack()
+
+        # add title and execute GUI
+        root.title("ViReflow v%s" % VERSION)
+        root.mainloop()
+    except:
+        print("ERROR: Unable to import Tkinter", file=stderr); exit(1)
+    if len(argv) == 1:
+        exit()
+
+# when script is executed
+if __name__ == "__main__":
+    if len(argv) == 1:
+        run_gui()
+    else:
+        main()
