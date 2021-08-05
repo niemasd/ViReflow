@@ -7,6 +7,7 @@ from os.path import abspath, isfile
 from sys import stderr, stdout
 import argparse
 import sys
+GUI = False
 
 # help text
 HELP_TEXT_ABSPATH = "Use absolute paths to Reflow run files"
@@ -66,7 +67,7 @@ def run_gui():
 
         # create applet
         root = Tk()
-        root.geometry("600x600")
+        root.geometry("600x400")
 
         # set up main frame
         frame = Frame(root)
@@ -105,7 +106,7 @@ def run_gui():
             text_rfs.config(state='disabled')
         button_rfs = Button(frame, text="Input RF file(s):", command=find_filenames_rfs)
         button_rfs.pack(padx=3, pady=3)
-        text_rfs = ScrolledText(frame, height=5)
+        text_rfs = ScrolledText(frame, height=10)
         text_rfs.insert('1.0', '<no RF file(s) selected>')
         text_rfs.config(state='disabled')
         text_rfs.pack()
@@ -151,12 +152,13 @@ def run_gui():
 # run reflow as well
 def run_reflow(batch_rf_fn):
     print(batch_rf_fn)
+    print(GUI)
     exit(1) # TODO
 
 # main execution
 if __name__ == "__main__":
     if len(sys.argv) == 1:
-        run_gui()
+        GUI = True; run_gui()
     args = main()
     if args.run:
         run_reflow(args.output.name)
