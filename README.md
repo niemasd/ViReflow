@@ -25,7 +25,71 @@ While ViReflow itself only depends on Python 3, the pipelines it produces are [R
 ViReflow can be used as follows:
 
 ```
-TODO REPLACE WITH USAGE
+usage: ViReflow.py [-h] -id RUN_ID -d DESTINATION -rf REFERENCE_FASTA -rg
+                   REFERENCE_GFF -p PRIMER_BED [-o OUTPUT] [-t THREADS]
+                   [-cl COMPRESSION_LEVEL] [--mapped_read_cap MAPPED_READ_CAP]
+                   [--min_alt_freq MIN_ALT_FREQ] [--read_mapper READ_MAPPER]
+                   [--read_trimmer READ_TRIMMER]
+                   [--variant_caller VARIANT_CALLER] [--optional_pangolin]
+                   [--optional_spades_coronaspades]
+                   [--optional_spades_metaviralspades]
+                   [--optional_spades_rnaviralspades] [-u]
+                   FQ [FQ ...]
+
+ViReflow: An elastically-scaling parallelized AWS pipeline for viral consensus
+sequence generation
+
+positional arguments:
+  FQ                    Input FASTQ Files (s3/http/https/ftp; single
+                        biological sample)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -id RUN_ID, --run_id RUN_ID
+                        Unique Run Identifier (for output file naming)
+                        (default: None)
+  -d DESTINATION, --destination DESTINATION
+                        Destination for Results (s3 folder) (default: None)
+  -rf REFERENCE_FASTA, --reference_fasta REFERENCE_FASTA
+                        Reference Genome Sequence (s3/http/https/ftp to FASTA)
+                        (default: None)
+  -rg REFERENCE_GFF, --reference_gff REFERENCE_GFF
+                        Reference Genome Annotation (s3/http/https/ftp to
+                        GFF3) (default: None)
+  -p PRIMER_BED, --primer_bed PRIMER_BED
+                        Primer (s3/http/https/ftp to BED) (default: None)
+  -o OUTPUT, --output OUTPUT
+                        Output Reflow File (rf) (default: stdout)
+  -t THREADS, --threads THREADS
+                        Number of Threads (default: 1)
+  -cl COMPRESSION_LEVEL, --compression_level COMPRESSION_LEVEL
+                        Compression Level (1 = fastest, 9 = best) (default: 1)
+  --mapped_read_cap MAPPED_READ_CAP
+                        Successfully-Mapped Read Cap (default: None)
+  --min_alt_freq MIN_ALT_FREQ
+                        Minimum Alt Allele Frequency for consensus sequence
+                        (default: 0.5)
+  --read_mapper READ_MAPPER
+                        Read Mapper (options: bowtie2, bwa, minimap2)
+                        (default: minimap2)
+  --read_trimmer READ_TRIMMER
+                        Read Trimmer (options: fastp, ivar, prinseq, ptrimmer)
+                        (default: ivar)
+  --variant_caller VARIANT_CALLER
+                        Variant Caller (options: freebayes, ivar, lofreq)
+                        (default: lofreq)
+  --optional_pangolin   Run Pangolin (optional) (default: False)
+  --optional_spades_coronaspades
+                        Run SPAdes in coronaSPAdes mode (optional) (default:
+                        False)
+  --optional_spades_metaviralspades
+                        Run SPAdes in metaviralSPAdes mode (optional)
+                        (default: False)
+  --optional_spades_rnaviralspades
+                        Run SPAdes in rnaviralSPAdes mode (optional) (default:
+                        False)
+  -u, --update          Update ViReflow (current version: 1.0.12) (default:
+                        False)
 ```
 
 For extensive details about each command line argument, see the [Command Line Argument Descriptions](../../wiki/Command-Line-Argument-Descriptions) section of the ViReflow wiki.
@@ -34,23 +98,13 @@ For extensive details about each command line argument, see the [Command Line Ar
 We have provided [demo files](demo), and ViReflow can be executed as follows:
 
 ```bash
-ViReflow.py -id demo                                            \ # specify run ID
-            -rf s3://vireflow-demo/NC_045512.2.fas              \ # specify reference genome sequence
-            -rm s3://vireflow-demo/NC_045512.2.fas.mmi          \ # specify reference genome Minimap2 index
-            -rg s3://vireflow-demo/NC_045512.2.gff3             \ # specify reference genome annotation
-            -p s3://vireflow-demo/sarscov2_v2_primers_swift.bed \ # specify primer BED
-            -d s3://vireflow-demo/results_all_s3                \ # specify result destination directory
-            --include_depth                                     \ # include depth calculation
-            -o all_s3.rf                                        \ # specify output Reflow file
-            -mt 2                                               \ # use at most 2 threads in any given step
-            s3://vireflow-demo/test_R1.fastq                    \ # first FASTQ file
-            s3://vireflow-demo/test_R2.fastq                      # second FASTQ file
+TODO UPDATE
 ```
 
-This will result in the creation of a file called `all_s3.rf`, which is the Reflow workflow file. Assuming Reflow is properly installed and configured, the workflow can now be run as follows:
+This will result in the creation of a file called `demo.rf`, which is the Reflow workflow file. Assuming Reflow is properly installed and configured, the workflow can now be run as follows:
 
 ```bash
-reflow run all_s3.rf
+reflow run demo.rf
 ```
 
 ## Batch Parallel Execution
