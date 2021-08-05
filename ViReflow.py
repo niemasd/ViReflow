@@ -669,12 +669,12 @@ def run_gui():
                 sys.argv.append('-rg'); sys.argv.append(entry_ref_gff.get().strip())
                 sys.argv.append('-p'); sys.argv.append(entry_bed.get().strip())
                 sys.argv.append('-t'); sys.argv.append(entry_threads.get().strip())
-                sys.argv.append('-cl'); sys.argv.append(dropdown_compress_var.get().lstrip(dropdown_compress_prefix).strip())
+                sys.argv.append('-cl'); sys.argv.append(dropdown_compress_var.get().split(':')[-1].strip())
                 sys.argv.append('--mapped_read_cap'); sys.argv.append(entry_cap.get().strip())
                 sys.argv.append('--min_alt_freq'); sys.argv.append(entry_min_alt.get().strip())
-                sys.argv.append('--read_mapper'); sys.argv.append(dropdown_mapper_var.get().lstrip(dropdown_mapper_prefix).strip())
-                sys.argv.append('--read_trimmer'); sys.argv.append(dropdown_trimmer_var.get().lstrip(dropdown_trimmer_prefix).strip())
-                sys.argv.append('--variant_caller'); sys.argv.append(dropdown_trimmer_var.get().lstrip(dropdown_trimmer_prefix).strip())
+                sys.argv.append('--read_mapper'); sys.argv.append(dropdown_mapper_var.get().split(':')[-1].strip())
+                sys.argv.append('--read_trimmer'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
+                sys.argv.append('--variant_caller'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
                 if check_pangolin_var.get() == 1:
                     sys.argv.append('--optional_pangolin')
                 if check_coronaspades_var.get() == 1:
