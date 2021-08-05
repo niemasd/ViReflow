@@ -37,6 +37,21 @@ INSTANCE_INFO = {
 }
 DATE_COMMAND_BASH = 'echo "[$(date +"%Y-%m-%d %T")]"'
 
+# defaults
+DEFAULT_THREADS = 1
+DEFAULT_COMPRESS = 1
+DEFAULT_MIN_ALT_FREQ = 0.5
+DEFAULT_READ_MAPPER = 'minimap2'
+DEFAULT_READ_TRIMMER = 'ivar'
+DEFAULT_VARIANT_CALLER = 'lofreq'
+
+# help text
+HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
+HELP_TEXT_CORONASPADES = "Run SPAdes in coronaSPAdes mode (optional)"
+HELP_TEXT_METAVIRALSPADES = "Run SPAdes in metaviralSPAdes mode (optional)"
+HELP_TEXT_RNAVIRALSPADES = "Run SPAdes in rnaviralSPAdes mode (optional)"
+
+# clear argv
 def clear_argv(keep_first_arg=True):
     tmp = sys.argv[0]; sys.argv.clear()
     if keep_first_arg:
@@ -76,15 +91,15 @@ def parse_args():
     parser.add_argument('-rg', '--reference_gff', required=True, type=str, help="Reference Genome Annotation (s3/http/https/ftp to GFF3)")
     parser.add_argument('-p', '--primer_bed', required=True, type=str, help="Primer (s3/http/https/ftp to BED)")
     parser.add_argument('-o', '--output', required=False, type=str, default='stdout', help="Output Reflow File (rf)")
-    parser.add_argument('-t', '--threads', required=False, type=int, default=1, help="Number of Threads")
-    parser.add_argument('-cl', '--compression_level', required=False, type=int, default=1, help="Compression Level (1 = fastest, 9 = best)")
+    parser.add_argument('-t', '--threads', required=False, type=int, default=DEFAULT_THREADS, help="Number of Threads")
+    parser.add_argument('-cl', '--compression_level', required=False, type=int, default=DEFAULT_COMPRESS, help="Compression Level (1 = fastest, 9 = best)")
     parser.add_argument('--mapped_read_cap', required=False, type=int, default=None, help="Successfully-Mapped Read Cap")
-    parser.add_argument('--min_alt_freq', required=False, type=float, default=0.5, help="Minimum Alt Allele Frequency for consensus sequence")
-    parser.add_argument('--read_mapper', required=False, type=str, default='minimap2', help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
-    parser.add_argument('--read_trimmer', required=False, type=str, default='ivar', help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
-    parser.add_argument('--variant_caller', required=False, type=str, default='lofreq', help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
-    parser.add_argument('--optional_pangolin', action='store_true', help="Run Pangolin (optional)")
-    parser.add_argument('--optional_spades_coronaspades', action='store_true', help="Run SPAdes in coronaSPAdes mode (optional)")
+    parser.add_argument('--min_alt_freq', required=False, type=float, default=DEFAULT_MIN_ALT_FREQ, help="Minimum Alt Allele Frequency for consensus sequence")
+    parser.add_argument('--read_mapper', required=False, type=str, default=DEFAULT_READ_MAPPER, help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
+    parser.add_argument('--read_trimmer', required=False, type=str, default=DEFAULT_READ_TRIMMER, help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
+    parser.add_argument('--variant_caller', required=False, type=str, default=DEFAULT_VARIANT_CALLER, help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
+    parser.add_argument('--optional_pangolin', action='store_true', help=HELP_TEXT_PANGOLIN)
+    parser.add_argument('--optional_spades_coronaspades', action='store_true', help=HELP_TEXT_CORONASPADES)
     parser.add_argument('--optional_spades_metaviralspades', action='store_true', help="Run SPAdes in metaviralSPAdes mode (optional)")
     parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help="Run SPAdes in rnaviralSPAdes mode (optional)")
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
@@ -470,7 +485,7 @@ def run_gui():
 
         # create applet
         root = Tk()
-        root.geometry("600x400")
+        root.geometry("600x600")
 
         # set up main frame
         frame = Frame(root)
@@ -479,6 +494,108 @@ def run_gui():
         # add header
         header = Label(frame, text="ViReflow v%s" % VERSION, font=('Arial',24))
         header.pack()
+
+        # handle input CSV selection
+        button_csv_prefix = "Input Sample CSV:\n"
+        button_csv_nofile = "<none selected>"
+        def find_filename_csv():
+            fn = askopenfilename(title="Select Input Samples (CSV format)",filetypes=(("CSV files","*.csv"),))
+            if len(fn) == 0:
+                button_csv.configure(text="%s%s" % (button_csv_prefix,button_csv_nofile))
+            else:
+                button_csv.configure(text="%s%s" % (button_csv_prefix,fn))
+        button_csv = Button(frame, text="%s%s" % (button_csv_prefix,button_csv_nofile), command=find_filename_csv)
+        button_csv.pack(padx=3, pady=3)
+
+        # handle S3 destination
+        entry_dest_default = "Enter Destination (S3/HTTP/HTTPS/FTP path)"
+        entry_dest = Entry(frame, width=60)
+        entry_dest.insert(END, entry_dest_default)
+        entry_dest.pack()
+
+        # handle reference FASTA
+        entry_ref_fas_default = "Enter Reference FASTA (S3/HTTP/HTTPS/FTP path)"
+        entry_ref_fas = Entry(frame, width=60)
+        entry_ref_fas.insert(END, entry_ref_fas_default)
+        entry_ref_fas.pack()
+
+        # handle reference GFF
+        entry_ref_gff_default = "Enter Reference GFF (S3/HTTP/HTTPS/FTP path)"
+        entry_ref_gff = Entry(frame, width=60)
+        entry_ref_gff.insert(END, entry_ref_gff_default)
+        entry_ref_gff.pack()
+
+        # handle primer BED
+        entry_bed_default = "Enter Primer BED (S3/HTTP/HTTPS/FTP path)"
+        entry_bed = Entry(frame, width=60)
+        entry_bed.insert(END, entry_bed_default)
+        entry_bed.pack()
+
+        # handle threads selection
+        entry_threads_default = "Enter Number of Threads (recommended: %d)" % DEFAULT_THREADS
+        entry_threads = Entry(frame, width=60)
+        entry_threads.insert(END, entry_threads_default)
+        entry_threads.pack()
+
+        # handle compression level selection
+        dropdown_compress_prefix = "Compression Level: "
+        dropdown_compress_var = StringVar(frame)
+        dropdown_compress_var.set("%s%s" % (dropdown_compress_prefix,DEFAULT_COMPRESS))
+        dropdown_compress = OptionMenu(frame, dropdown_compress_var, *[("%s%d" % (dropdown_compress_prefix,i)) for i in range(1,10)])
+        dropdown_compress.pack()
+
+        # handle mapped read cap selection
+        entry_cap_default = "Enter Mapped Read Cap (or None to not cap)"
+        entry_cap = Entry(frame, width=60)
+        entry_cap.insert(END, entry_cap_default)
+        entry_cap.pack()
+
+        # handle min alt freq selection
+        entry_min_alt_default = "Enter Minimum Alternate Frequency (recommended: %s)" % DEFAULT_MIN_ALT_FREQ
+        entry_min_alt = Entry(frame, width=60)
+        entry_min_alt.insert(END, entry_min_alt_default)
+        entry_min_alt.pack()
+
+        # handle read mapper selection
+        dropdown_mapper_prefix = "Read Mapper: "
+        dropdown_mapper_var = StringVar(frame)
+        dropdown_mapper_var.set("%s%s" % (dropdown_mapper_prefix,DEFAULT_READ_MAPPER))
+        dropdown_mapper = OptionMenu(frame, dropdown_mapper_var, *sorted(("%s%s" % (dropdown_mapper_prefix,v)) for v in READ_MAPPERS))
+        dropdown_mapper.pack()
+
+        # handle read trimmer selection
+        dropdown_trimmer_prefix = "Read Trimmer: "
+        dropdown_trimmer_var = StringVar(frame)
+        dropdown_trimmer_var.set("%s%s" % (dropdown_trimmer_prefix,DEFAULT_READ_TRIMMER))
+        dropdown_trimmer = OptionMenu(frame, dropdown_trimmer_var, *sorted(("%s%s" % (dropdown_trimmer_prefix,v)) for v in READ_TRIMMERS_ALL))
+        dropdown_trimmer.pack()
+
+        # handle variant caller selection
+        dropdown_variant_caller_prefix = "Variant Caller: "
+        dropdown_variant_caller_var = StringVar(frame)
+        dropdown_variant_caller_var.set("%s%s" % (dropdown_variant_caller_prefix,DEFAULT_VARIANT_CALLER))
+        dropdown_variant_caller = OptionMenu(frame, dropdown_variant_caller_var, *sorted(("%s%s" % (dropdown_variant_caller_prefix,v)) for v in VARIANT_CALLERS))
+        dropdown_variant_caller.pack()
+
+        # handle pangolin toggle
+        check_pangolin_var = IntVar(frame)
+        check_pangolin = Checkbutton(frame, text=HELP_TEXT_PANGOLIN, variable=check_pangolin_var, onvalue=1, offvalue=0)
+        check_pangolin.pack()
+
+        # handle coronaspades toggle
+        check_coronaspades_var = IntVar(frame)
+        check_coronaspades = Checkbutton(frame, text=HELP_TEXT_CORONASPADES, variable=check_coronaspades_var, onvalue=1, offvalue=0)
+        check_coronaspades.pack()
+
+        # handle metaviralspades toggle
+        check_metaviralspades_var = IntVar(frame)
+        check_metaviralspades = Checkbutton(frame, text=HELP_TEXT_METAVIRALSPADES, variable=check_metaviralspades_var, onvalue=1, offvalue=0)
+        check_metaviralspades.pack()
+
+        # handle rnaviralspades toggle
+        check_rnaviralspades_var = IntVar(frame)
+        check_rnaviralspades = Checkbutton(frame, text=HELP_TEXT_RNAVIRALSPADES, variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
+        check_rnaviralspades.pack()
 
         # add title and execute GUI
         root.title("ViReflow v%s" % VERSION)
