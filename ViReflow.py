@@ -6,7 +6,7 @@ ViReflow: An elastically-scaling parallelized AWS pipeline for viral consensus s
 # imports
 from csv import reader
 from json import load as jload
-from os import remove
+from os import chdir,remove
 from sys import stderr
 from time import localtime, strftime
 from urllib.request import urlopen
@@ -521,6 +521,18 @@ def run_gui():
         button_csv = Button(frame, text="%s%s" % (button_csv_prefix,button_csv_nofile), command=find_filename_csv)
         button_csv.pack(padx=3, pady=3)
 
+        # handle output folder selection
+        button_out_prefix = "Output Directory:\n"
+        button_out_nofolder = "<none selected>"
+        def find_directory_out():
+            dn = askdirectory(title="Select Output Directory")
+            if len(dn) == 0:
+                button_out.configure(text="%s%s" % (button_out_prefix,button_out_nofolder))
+            else:
+                button_out.configure(text="%s%s" % (button_out_prefix,dn))
+        button_out = Button(frame, text="%s%s" % (button_out_prefix,button_out_nofolder), command=find_directory_out)
+        button_out.pack(padx=3, pady=3)
+
         # handle S3 destination
         entry_dest_default = "Enter Destination (S3 path)"
         entry_dest = Entry(frame, width=60)
@@ -620,6 +632,12 @@ def run_gui():
                     gui_popup("ERROR: Input Sample CSV file not selected", title="ERROR"); valid = False
             except:
                 pass
+            # check output directory
+            try:
+                if button_out['text'] == "%s%s" % (button_out_prefix,button_out_nofolder):
+                    gui_popup("ERROR: Output Directory not selected", title="ERROR"); valid = False
+            except:
+                pass
             # check destination
             try:
                 if not entry_dest.get().strip().lower().startswith('s3://'):
@@ -683,7 +701,8 @@ def run_gui():
                     sys.argv.append('--optional_spades_metaviralspades')
                 if check_rnaviralspades_var.get() == 1:
                     sys.argv.append('--optional_spades_rnaviralspades')
-                sys.argv.append(button_csv['text'].lstrip(button_csv_prefix).strip())
+                sys.argv.append(button_csv['text'].split(':')[-1].strip())
+                chdir(button_out['text'].split(':')[-1].strip())
                 try:
                     root.destroy()
                 except:
