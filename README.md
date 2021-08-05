@@ -1,14 +1,19 @@
 # ViReflow
 ViReflow is a tool for constructing elastically-scaling parallelized automated AWS pipelines for viral consensus sequence generation. Given sequence data from a viral sample as well as information about the reference genome and primers, ViReflow generates a [Reflow](https://github.com/grailbio/reflow) file that contains all steps of the workflow, including AWS instance specifications. Because ViReflow is intended to be used with Reflow, the workflows that are developed by ViReflow automatically distribute independent tasks to be run in parallel as well as elastically scale AWS instances based on each individual step of the workflow. ViReflow makes use of compact minimal Docker images for each step of the viral analysis workflow, details about which can be found in the [Niema-Docker](https://github.com/Niema-Docker) GitHub organization.
 
-## Workflow Summary (TODO NEED TO UPDATE, OUT OF DATE)
-The workflows produced by ViReflow have the following steps (**^** denotes default choice):
-* **Trim the reads** using **^[fastp](https://github.com/OpenGene/fastp)**, [iVar](https://github.com/andersen-lab/ivar), [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
-* **Map the reads** using [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/), or **^[Minimap2](https://github.com/lh3/minimap2)**
+## Workflow Summary
+<img src="docs/workflow.png">
+* **Trim the reads** using **[iVar](https://github.com/andersen-lab/ivar) (default)**, [fastp](https://github.com/OpenGene/fastp), [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
+* **Map the reads** using **[Minimap2](https://github.com/lh3/minimap2) (default)**, [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/)
 * **Generate a pile-up** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
-* **Call variants** from the pile-up using [freebayes](https://github.com/freebayes/freebayes), [iVar](https://github.com/andersen-lab/ivar), or **^[LoFreq](https://csb5.github.io/lofreq/)*
-* **Calculate depth** from the trimmed mapped reads using [samtools](http://www.htslib.org/)
+* **Call variants** using **[LoFreq](https://csb5.github.io/lofreq/) (default)**, [freebayes](https://github.com/freebayes/freebayes), [iVar](https://github.com/andersen-lab/ivar)
+* **Calculate depth** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
 * **Call a consensus sequence** of high-depth regions from the variants using **[bcftools](http://samtools.github.io/bcftools/bcftools.html)**
+* **OPTIONAL:**
+  * **Assign a COVID-19 lineage** using **[Pangolin](https://pangolin.cog-uk.io/)**
+  * **Assemble a *de novo* genome** using **[coronaSPAdes](https://cab.spbu.ru/software/coronaspades)**
+  * **Assemble a *de novo* genome** using **[metaviralSPAdes](https://doi.org/10.1093/bioinformatics/btaa490)**
+  * **Assemble a *de novo* genome** using **[rnaviralSPAdes](https://github.com/ablab/spades#supported-data-types)**
 
 ## Installation
 ViReflow is written in Python 3. You can simply download [ViReflow.py](ViReflow.py) to your machine and make it executable:
