@@ -61,6 +61,20 @@ def clear_argv(keep_first_arg=True):
 def parse_version(s):
     return tuple(int(v) for v in s.split('.'))
 
+# check if string can be parsed as int
+def check_int(s):
+    try:
+        int(s); return True
+    except:
+        return False
+
+# check if string can be parsed as float
+def check_float(s):
+    try:
+        float(s); return True
+    except:
+        return False
+
 # update ViReflow to the newest version
 def update_vireflow():
     tags = jload(urlopen(RELEASES_URL))
@@ -508,7 +522,7 @@ def run_gui():
         button_csv.pack(padx=3, pady=3)
 
         # handle S3 destination
-        entry_dest_default = "Enter Destination (S3/HTTP/HTTPS/FTP path)"
+        entry_dest_default = "Enter Destination (S3 path)"
         entry_dest = Entry(frame, width=60)
         entry_dest.insert(END, entry_dest_default)
         entry_dest.pack()
@@ -596,6 +610,86 @@ def run_gui():
         check_rnaviralspades_var = IntVar(frame)
         check_rnaviralspades = Checkbutton(frame, text=HELP_TEXT_RNAVIRALSPADES, variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
         check_rnaviralspades.pack()
+
+        # add generate button
+        def finish_applet():
+            valid = True
+            # check CSV
+            try:
+                if button_csv['text'] == "%s%s" % (button_csv_prefix,button_csv_nofile):
+                    gui_popup("ERROR: Input Sample CSV file not selected", title="ERROR"); valid = False
+            except:
+                pass
+            # check destination
+            try:
+                if not entry_dest.get().strip().lower().startswith('s3://'):
+                    gui_popup("ERROR: Invalid destination S3 path:\n%s" % entry_dest.get()); valid = False
+            except:
+                pass
+            # check reference FASTA
+            try:
+                if entry_ref_fas.get().strip().lower().split('://')[0] not in {'s3', 'http', 'https', 'ftp'}:
+                    gui_popup("ERROR: Invalid reference FASTA path:\n%s" % entry_ref_fas.get()); valid = False
+            except:
+                pass
+            # check reference GFF
+            try:
+                if entry_ref_gff.get().strip().lower().split('://')[0] not in {'s3', 'http', 'https', 'ftp'}:
+                    gui_popup("ERROR: Invalid reference GFF path:\n%s" % entry_ref_gff.get()); valid = False
+            except:
+                pass
+            # check primer BED
+            try:
+                if entry_bed.get().strip().lower().split('://')[0] not in {'s3', 'http', 'https', 'ftp'}:
+                    gui_popup("ERROR: Invalid primer BED path:\n%s" % entry_bed.get()); valid = False
+            except:
+                pass
+            # check threads
+            try:
+                if not check_int(entry_threads.get()) or int(entry_threads.get()) < 1:
+                    gui_popup("ERROR: Invalid number of threads:\n%s" % entry_threads.get()); valid = False
+            except:
+                pass
+            # check mapped read cap
+            try:
+                if entry_cap.get() != 'None' and (not check_int(entry_cap.get()) or int(entry_cap.get()) < 1):
+                    gui_popup("ERROR: Invalid mapped read cap:\n%s" % entry_cap.get()); valid = False
+            except:
+                pass
+            # check min alt freq
+            try:
+                if not check_float(entry_min_alt.get()) or float(entry_min_alt.get()) < 0 or float(entry_min_alt.get()) > 1:
+                    gui_popup("ERROR: Invalid minimum alternate allele frequency:\n%s" % entry_min_alt.get()); valid = False
+            except:
+                pass
+            # close applet to run ViReflow
+            if valid:
+                sys.argv.append('-d'); sys.argv.append(entry_dest.get().strip())
+                sys.argv.append('-rf'); sys.argv.append(entry_ref_fas.get().strip())
+                sys.argv.append('-rg'); sys.argv.append(entry_ref_gff.get().strip())
+                sys.argv.append('-p'); sys.argv.append(entry_bed.get().strip())
+                sys.argv.append('-t'); sys.argv.append(entry_threads.get().strip())
+                sys.argv.append('-cl'); sys.argv.append(dropdown_compress_var.get().lstrip(dropdown_compress_prefix).strip())
+                sys.argv.append('--mapped_read_cap'); sys.argv.append(entry_cap.get().strip())
+                sys.argv.append('--min_alt_freq'); sys.argv.append(entry_min_alt.get().strip())
+                sys.argv.append('--read_mapper'); sys.argv.append(dropdown_mapper_var.get().lstrip(dropdown_mapper_prefix).strip())
+                sys.argv.append('--read_trimmer'); sys.argv.append(dropdown_trimmer_var.get().lstrip(dropdown_trimmer_prefix).strip())
+                sys.argv.append('--variant_caller'); sys.argv.append(dropdown_trimmer_var.get().lstrip(dropdown_trimmer_prefix).strip())
+                if check_pangolin_var.get() == 1:
+                    sys.argv.append('--optional_pangolin')
+                if check_coronaspades_var.get() == 1:
+                    sys.argv.append('--optional_spades_coronaspades')
+                if check_metaviralspades_var.get() == 1:
+                    sys.argv.append('--optional_spades_metaviralspades')
+                if check_rnaviralspades_var.get() == 1:
+                    sys.argv.append('--optional_spades_rnaviralspades')
+                sys.argv.append(button_csv['text'].lstrip(button_csvprefix).strip())
+                try:
+                    root.destroy()
+                except:
+                    pass
+        button_generate = Button(frame, text="Generate Reflow run files", command=finish_applet)
+        button_generate.pack(padx=3, pady=3)
 
         # add title and execute GUI
         root.title("ViReflow v%s" % VERSION)
