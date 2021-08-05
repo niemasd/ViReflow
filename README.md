@@ -3,6 +3,7 @@ ViReflow is a tool for constructing elastically-scaling parallelized automated A
 
 ## Workflow Summary
 <img src="docs/workflow.png">
+
 * **Trim the reads** using **[iVar](https://github.com/andersen-lab/ivar) (default)**, [fastp](https://github.com/OpenGene/fastp), [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
 * **Map the reads** using **[Minimap2](https://github.com/lh3/minimap2) (default)**, [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/)
 * **Generate a pile-up** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
