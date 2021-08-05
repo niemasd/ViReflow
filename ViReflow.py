@@ -703,5 +703,4 @@ def run_gui():
 if __name__ == "__main__":
     if len(sys.argv) == 1:
         run_gui()
-    else:
-        main()
+    main()
