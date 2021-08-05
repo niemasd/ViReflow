@@ -2,6 +2,7 @@
 '''
 Create a Reflow run file that batch-executes many other Reflow run files.
 '''
+from os import remove
 from os.path import abspath, isfile
 from sys import stderr, stdout
 import argparse
@@ -87,11 +88,6 @@ def run_gui():
         button_out = Button(frame, text="%s%s" % (button_out_prefix,button_out_nofile), command=find_filename_out)
         button_out.pack(padx=3, pady=3)
 
-        # handle abspath toggle
-        check_abspath_var = IntVar(frame)
-        check_abspath = Checkbutton(frame, text=HELP_TEXT_ABSPATH, variable=check_abspath_var, onvalue=1, offvalue=0)
-        check_abspath.pack()
-
         # handle run toggle
         check_run_var = IntVar(frame)
         check_run = Checkbutton(frame, text=HELP_TEXT_RUN, variable=check_run_var, onvalue=1, offvalue=0)
@@ -117,22 +113,50 @@ def run_gui():
         # handle save button
         def finish_applet():
             valid = True
-            # check 
+            # check output batch RF
+            try:
+                if button_out['text'] == "%s%s" % (button_out_prefix,button_out_nofile):
+                    gui_popup("ERROR: Output Batch RF file not selected", title="ERROR"); valid = False
+            except:
+                pass
+            # check input sample RF(s)
+            try:
+                if text_rfs.get('1.0', END).strip() == '<no RF file(s) selected>':
+                    gui_popup("ERROR: Input RF file(s) not selected", title="ERROR"); valid = False
+            except:
+                pass
+            if valid:
+                out_fn = button_out['text'].split(':')[-1].strip()
+                sys.argv.append('-o'); sys.argv.append(out_fn)
+                if isfile(out_fn):
+                    remove(out_fn)
+                if check_run_var.get() == 1:
+                    sys.argv.append('--run')
+                sys.argv += [rf.strip() for rf in text_rfs.get('1.0', END).strip().splitlines()]
+                try:
+                    root.destroy()
+                except:
+                    pass
+        button_save = Button(frame, text="Save Batch RF", command=finish_applet)
+        button_save.pack(padx=3, pady=3)
 
         # add title and execute GUI
         root.title("Reflow Batch")
         root.mainloop()
-    except Exception as e:
-        print(e); exit()
+    except:
         print("ERROR: Unable to import Tkinter", file=stderr); exit(1)
     if len(sys.argv) == 1:
         exit()
 
+# run reflow as well
+def run_reflow(batch_rf_fn):
+    print(batch_rf_fn)
+    exit(1) # TODO
+
 # main execution
 if __name__ == "__main__":
-    gui = False
     if len(sys.argv) == 1:
-        gui = True; run_gui()
+        run_gui()
     args = main()
     if args.run:
-        pass # TODO
+        run_reflow(args.output.name)
