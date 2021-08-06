@@ -2,12 +2,17 @@
 '''
 Create a Reflow run file that batch-executes many other Reflow run files.
 '''
-from os import remove
-from os.path import abspath, isfile
-from sys import stderr, stdout
+from os import environ, makedirs, remove
+from os.path import abspath, expanduser, isfile
+from subprocess import Popen, PIPE
+from sys import platform, stderr, stdout
 import argparse
 import sys
+
+# helpful constants
 GUI = False
+REFLOW_EXEC_LINUX_URL = 'https://github.com/grailbio/reflow/releases/download/reflow1.6.0/reflow1.6.0.linux.amd64'
+REFLOW_EXEC_MAC_URL = 'https://github.com/grailbio/reflow/releases/download/reflow1.6.0/reflow1.6.0.darwin.amd64'
 
 # help text
 HELP_TEXT_ABSPATH = "Use absolute paths to Reflow run files"
@@ -67,7 +72,7 @@ def run_gui():
 
         # create applet
         root = Tk()
-        root.geometry("600x400")
+        root.geometry("600x450")
 
         # set up main frame
         frame = Frame(root)
@@ -93,6 +98,24 @@ def run_gui():
         check_run_var = IntVar(frame)
         check_run = Checkbutton(frame, text=HELP_TEXT_RUN, variable=check_run_var, onvalue=1, offvalue=0)
         check_run.pack()
+
+        # handle AWS_ACCESS_KEY_ID
+        entry_AWS_ACCESS_KEY_ID_default = "Enter AWS_ACCESS_KEY_ID (only necessary for 'reflow run')"
+        entry_AWS_ACCESS_KEY_ID = Entry(frame, width=60)
+        entry_AWS_ACCESS_KEY_ID.insert(END, entry_AWS_ACCESS_KEY_ID_default)
+        entry_AWS_ACCESS_KEY_ID.pack()
+
+        # handle AWS_SECRET_ACCESS_KEY
+        entry_AWS_SECRET_ACCESS_KEY_default = "Enter AWS_SECRET_ACCESS_KEY (only necessary for 'reflow run')"
+        entry_AWS_SECRET_ACCESS_KEY = Entry(frame, width=60)
+        entry_AWS_SECRET_ACCESS_KEY.insert(END, entry_AWS_SECRET_ACCESS_KEY_default)
+        entry_AWS_SECRET_ACCESS_KEY.pack()
+
+        # handle AWS_REGION
+        entry_AWS_REGION_default = "Enter AWS_REGION (only necessary for 'reflow run')"
+        entry_AWS_REGION = Entry(frame, width=60)
+        entry_AWS_REGION.insert(END, entry_AWS_REGION_default)
+        entry_AWS_REGION.pack()
 
         # handle input RF file selection
         def find_filenames_rfs():
@@ -134,6 +157,12 @@ def run_gui():
                 if check_run_var.get() == 1:
                     sys.argv.append('--run')
                 sys.argv += [rf.strip() for rf in text_rfs.get('1.0', END).strip().splitlines()]
+                if entry_AWS_ACCESS_KEY_ID.get().strip() != entry_AWS_ACCESS_KEY_ID_default.strip():
+                    environ['AWS_ACCESS_KEY_ID'] = entry_AWS_ACCESS_KEY_ID.get().strip()
+                if entry_AWS_SECRET_ACCESS_KEY.get().strip() != entry_AWS_SECRET_ACCESS_KEY_default.strip():
+                    environ['AWS_SECRET_ACCESS_KEY'] = entry_AWS_SECRET_ACCESS_KEY.get().strip()
+                if entry_AWS_REGION.get().strip() != entry_AWS_REGION_default.strip():
+                    environ['AWS_REGION'] = AWS_REGION.get().strip()
                 try:
                     root.destroy()
                 except:
@@ -151,9 +180,56 @@ def run_gui():
 
 # run reflow as well
 def run_reflow(batch_rf_fn):
-    print(batch_rf_fn)
-    print(GUI)
-    exit(1) # TODO
+    def execute(batch_rf_fn):
+        # check if reflow is in PATH
+        reflow_exe_path = None
+        try:
+            o,e = Popen(['reflow', 'run', '-h'], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate()
+            if e.decode().startswith('usage: reflow run'):
+                reflow_exe_path = 'reflow'
+        except:
+            pass
+
+        # if reflow doesn't exist, set it up
+        if reflow_exe_path is None:
+            if GUI:
+                text_stdout.insert(END, "Setting up reflow...\n")
+            else:
+                print("Setting up reflow...")
+            if 'linux' in platform:
+                url = REFLOW_EXEC_LINUX_URL
+            elif 'darwin' in platform:
+                url = REFLOW_EXEC_MAC_URL
+            else:
+                print("Your platform is not currently supported: %s" % platform)
+            from urllib.request import urlopen
+            reflow_dir = expanduser('~/.reflow')
+            reflow_exe_path = '%s/reflow' % reflow_dir
+            makedirs(reflow_dir, exist_ok=True)
+            reflow_exe = urlopen(url).read()
+            f = open(reflow_exe_path, 'wb'); f.write(reflow_exe); f.close()
+
+        # run reflow
+        command = [reflow_exe_path, 'run', batch_rf_fn]
+        with Popen(command, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+            for line in p.stdout:
+                if GUI:
+                    text_stdout.insert(END, line)
+                else:
+                    print(line, end='')
+
+    if GUI and False: # TODO REMOVE and False
+        root = TK()
+        root.geometry("600x400")
+        frame = Frame(root)
+        header = Label(frame, text="Reflow Console", font=('Arial',24))
+        header.pack()
+        text_stdout = ScrolledText(frame, height=10)
+        text_stdout.pack()
+        # TODO FINISH CONSOLE GUI
+        execute(batch_rf_fn)
+    else:
+        execute(batch_rf_fn)
 
 # main execution
 if __name__ == "__main__":
