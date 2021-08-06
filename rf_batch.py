@@ -195,13 +195,16 @@ def run_reflow(batch_rf_fn):
             if GUI:
                 text_stdout.insert(END, "Setting up reflow...\n")
             else:
-                print("Setting up reflow...")
+                print("Setting up reflow...", flush=True)
             if 'linux' in platform:
                 url = REFLOW_EXEC_LINUX_URL
             elif 'darwin' in platform:
                 url = REFLOW_EXEC_MAC_URL
             else:
-                print("Your platform is not currently supported: %s" % platform)
+                if GUI:
+                    text_stdout.insert(END, "Your platform is not currently supported: %s\n" % platform)
+                else:
+                    print("Your platform is not currently supported: %s" % platform, flush=True)
             from urllib.request import urlopen
             reflow_dir = expanduser('~/.reflow')
             reflow_exe_path = '%s/reflow' % reflow_dir
@@ -211,12 +214,14 @@ def run_reflow(batch_rf_fn):
 
         # run reflow
         command = [reflow_exe_path, 'run', batch_rf_fn]
-        with Popen(command, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
-            for line in p.stdout:
+        with Popen(command, stdout=PIPE, stderr=PIPE, bufsize=1, universal_newlines=True) as p:
+            for line in p.stderr:
                 if GUI:
-                    text_stdout.insert(END, line)
+                    text_stderr.insert(END, line)
                 else:
-                    print(line, end='')
+                    print(line, end='', flush=True)
+        if GUI:
+            root.destroy()
 
     if GUI and False: # TODO REMOVE and False
         root = TK()
@@ -224,10 +229,8 @@ def run_reflow(batch_rf_fn):
         frame = Frame(root)
         header = Label(frame, text="Reflow Console", font=('Arial',24))
         header.pack()
-        text_stdout = ScrolledText(frame, height=10)
+        text_stdout = ScrolledText(frame, height=40)
         text_stdout.pack()
-        # TODO FINISH CONSOLE GUI
-        execute(batch_rf_fn)
     else:
         execute(batch_rf_fn)
 
