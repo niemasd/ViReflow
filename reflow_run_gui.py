@@ -3,14 +3,16 @@
 Simple GUI to help run 'reflow run'
 '''
 from os import chmod, environ, makedirs, stat
-from os.path import expanduser
+from os.path import expanduser, isfile
 from stat import S_IEXEC
 from subprocess import PIPE, Popen
 from sys import platform, stderr
+from time import time
 
 # helpful constants
 REFLOW_EXEC_LINUX_URL = 'https://github.com/grailbio/reflow/releases/download/reflow1.6.0/reflow1.6.0.linux.amd64'
 REFLOW_EXEC_MAC_URL = 'https://github.com/grailbio/reflow/releases/download/reflow1.6.0/reflow1.6.0.darwin.amd64'
+REFLOW_DIR = expanduser('~/.reflow')
 
 # run GUI
 def run_gui():
@@ -137,22 +139,45 @@ def run_gui():
                         text_log.configure(state='disabled')
                         root.update_idletasks()
                     from urllib.request import urlopen
-                    reflow_dir = expanduser('~/.reflow')
-                    reflow_exe_path = '%s/reflow' % reflow_dir
-                    makedirs(reflow_dir, exist_ok=True)
+                    reflow_exe_path = '%s/reflow' % REFLOW_DIR
+                    makedirs(REFLOW_DIR, exist_ok=True)
                     reflow_exe = urlopen(url).read()
                     f = open(reflow_exe_path, 'wb'); f.write(reflow_exe); f.close()
                     chmod(reflow_exe_path, stat(reflow_exe_path).st_mode | S_IEXEC)
-                    text_log.configure(state='normal')
-                    text_log.insert(END, "Successfully downloaded reflow\nPerforming initial reflow configuration...\n")
-                    root.update_idletasks()
-                    return # TODO REMOVE WHEN DONE
 
-                # end GUI
-                try:
-                    root.destroy()
-                except:
-                    pass
+                # perform initial configuration (if needed)
+                if not isfile('%s/config.yaml' % REFLOW_DIR) or not isfile('%s/reflow.pem' % REFLOW_DIR):
+                    text_log.configure(state='normal')
+                    text_log.insert(END, "Performing initial reflow EC2 setup...\n")
+                    text_log.configure(state='disabled')
+                    root.update_idletasks()
+                    o,e = Popen(['reflow', 'setup-ec2'], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate() # TODO add verification that this worked?
+                    text_log.configure(state='normal')
+                    text_log.insert(END, "Setting up reflow S3-based cache...\n")
+                    text_log.configure(state='disabled')
+                    root.update_idletasks()
+                    o,e = Popen(['reflow', 'setup-s3-repository', '%s-quickstart-cache' % entry_AWS_ACCESS_KEY_ID.get().strip()], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate() # TODO add verification that this worked?
+                    o,e = Popen(['reflow', 'setup-dynamodb-assoc', '%s-quickstart' % entry_AWS_ACCESS_KEY_ID.get().strip()], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate() # TODO add verification that this worked?
+                    text_log.configure(state='normal')
+                    text_log.insert(END, "Finished initial reflow configuration\n")
+                    text_log.configure(state='disabled')
+                    root.update_idletasks()
+
+                # run reflow
+                run_file_fn = button_rf['text'].split(':')[-1].strip()
+                text_log.configure(state='normal')
+                text_log.insert(END, "Executing pipeline: reflow run %s\nThis can take hours to complete...\n" % run_file_fn)
+                text_log.configure(state='disabled')
+                root.update_idletasks()
+                START_TIME = time()
+                o,e = Popen(['reflow', 'run', run_file_fn], stdin=PIPE, stdout=PIPE, stderr=PIPE).communicate()
+                END_TIME = time()
+                text_log.configure(state='normal')
+                text_log.insert(END, "Finished execution in: %s seconds\n" % (END_TIME - START_TIME))
+                text_log.insert(END, "=== reflow standard output: ===\n%s\n" % o.decode())
+                text_log.insert(END, "=== reflow standard error:  ===\n%s\n" % e.decode())
+                text_log.configure(state='disabled')
+                root.update_idletasks()
         button_run = Button(frame, text="Run", command=finish_applet)
         button_run.pack(padx=3, pady=3)
 
