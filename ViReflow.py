@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.12'
+VERSION = '1.0.13'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -50,6 +50,7 @@ HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
 HELP_TEXT_CORONASPADES = "Run SPAdes in coronaSPAdes mode (optional)"
 HELP_TEXT_METAVIRALSPADES = "Run SPAdes in metaviralSPAdes mode (optional)"
 HELP_TEXT_RNAVIRALSPADES = "Run SPAdes in rnaviralSPAdes mode (optional)"
+HELP_TEXT_PI = "Compute pi diversity metric (optional)"
 
 # clear argv
 def clear_argv(keep_first_arg=True):
@@ -113,9 +114,10 @@ def parse_args():
     parser.add_argument('--read_trimmer', required=False, type=str, default=DEFAULT_READ_TRIMMER, help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
     parser.add_argument('--variant_caller', required=False, type=str, default=DEFAULT_VARIANT_CALLER, help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
     parser.add_argument('--optional_pangolin', action='store_true', help=HELP_TEXT_PANGOLIN)
+    parser.add_argument('--optional_pi_metric', action='store_true', help=HELP_TEXT_PI)
     parser.add_argument('--optional_spades_coronaspades', action='store_true', help=HELP_TEXT_CORONASPADES)
-    parser.add_argument('--optional_spades_metaviralspades', action='store_true', help="Run SPAdes in metaviralSPAdes mode (optional)")
-    parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help="Run SPAdes in rnaviralSPAdes mode (optional)")
+    parser.add_argument('--optional_spades_metaviralspades', action='store_true', help=HELP_TEXT_METAVIRALSPADES)
+    parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help=HELP_TEXT_RNAVIRALSPADES)
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
     args = parser.parse_args()
@@ -427,6 +429,14 @@ def main():
         rf_file.write('        pangolin --threads %d --outfile "%s" "%s"\n' % (args.threads, local_fns['pangolin_csv'], local_fns['consensus_fas']))
         rf_file.write('\n')
 
+    # optional: compute pi
+    if args.optional_pi_metric:
+        local_fns['pi_tsv'] = "%s/%s.pi.diversity.tsv" % (outdir, args.run_id)
+        rf_file.write('        # Compute pi diversity metric (optional)\n')
+        rf_file.write('        %s "Computing pi diversity metric (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        pi_from_pileup "%s" 10 > "%s"\n' % (local_fns['pileup_txt'], local_fns['pi_tsv']))
+        rf_file.write('\n')
+
     # optional: convert trimmed BAM to FASTQ
     if args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades: # add other SPAdes version booleans here
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
@@ -608,6 +618,11 @@ def run_gui():
         check_pangolin = Checkbutton(frame, text=HELP_TEXT_PANGOLIN, variable=check_pangolin_var, onvalue=1, offvalue=0)
         check_pangolin.pack()
 
+        # handle pi toggle
+        check_pi_var = IntVar(frame)
+        check_pi = Checkbutton(frame, text=HELP_TEXT_PI, variable=check_pi_var, onvalue=1, offvalue=1)
+        check_pi.pack()
+
         # handle coronaspades toggle
         check_coronaspades_var = IntVar(frame)
         check_coronaspades = Checkbutton(frame, text=HELP_TEXT_CORONASPADES, variable=check_coronaspades_var, onvalue=1, offvalue=0)
@@ -695,6 +710,8 @@ def run_gui():
                 sys.argv.append('--variant_caller'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
                 if check_pangolin_var.get() == 1:
                     sys.argv.append('--optional_pangolin')
+                if check_pi_var.get() == 1:
+                    sys.argv.append('--optional_pi_metric')
                 if check_coronaspades_var.get() == 1:
                     sys.argv.append('--optional_spades_coronaspades')
                 if check_metaviralspades_var.get() == 1:
