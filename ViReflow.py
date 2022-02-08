@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.13'
+VERSION = 'latest' #'1.0.14' # TODO REMOVE 'latest' WHEN DONE
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -30,6 +30,7 @@ READ_TRIMMERS = {
 READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
 READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
 VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
+VIRSTRAIN_DBS = {'H1N1', 'HIV', 'SCOV2'}
 INSTANCE_INFO = {
     'docker_image': 'niemasd/vireflow:%s' % VERSION,
     'mem':          '1*GiB',
@@ -46,11 +47,12 @@ DEFAULT_READ_TRIMMER = 'ivar'
 DEFAULT_VARIANT_CALLER = 'lofreq'
 
 # help text
-HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
 HELP_TEXT_CORONASPADES = "Run SPAdes in coronaSPAdes mode (optional)"
 HELP_TEXT_METAVIRALSPADES = "Run SPAdes in metaviralSPAdes mode (optional)"
-HELP_TEXT_RNAVIRALSPADES = "Run SPAdes in rnaviralSPAdes mode (optional)"
+HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
 HELP_TEXT_PI = "Compute pi diversity metric (optional)"
+HELP_TEXT_RNAVIRALSPADES = "Run SPAdes in rnaviralSPAdes mode (optional)"
+HELP_TEXT_VIRSTRAIN = "Run VirStrain (optional) (select DB: %s)" % ', '.join(sorted(VIRSTRAIN_DBS))
 
 # clear argv
 def clear_argv(keep_first_arg=True):
@@ -114,6 +116,7 @@ def parse_args():
     parser.add_argument('--read_trimmer', required=False, type=str, default=DEFAULT_READ_TRIMMER, help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
     parser.add_argument('--variant_caller', required=False, type=str, default=DEFAULT_VARIANT_CALLER, help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
     parser.add_argument('--optional_pangolin', action='store_true', help=HELP_TEXT_PANGOLIN)
+    parser.add_argument('--optional_virstrain', required=False, type=str, default=None, help=HELP_TEXT_VIRSTRAIN)
     parser.add_argument('--optional_pi_metric', action='store_true', help=HELP_TEXT_PI)
     parser.add_argument('--optional_spades_coronaspades', action='store_true', help=HELP_TEXT_CORONASPADES)
     parser.add_argument('--optional_spades_metaviralspades', action='store_true', help=HELP_TEXT_METAVIRALSPADES)
@@ -155,6 +158,11 @@ def parse_args():
     args.variant_caller = args.variant_caller.lower()
     if args.variant_caller not in VARIANT_CALLERS:
         stderr.write("Invalid variant caller: %s\n" % args.variant_caller); exit(1)
+
+    # check VirStrain DB selection is valid
+    args.optional_virstrain = args.optional_virstrain.upper()
+    if args.optional_virstrain is not None and args.optional_virstrain not in VIRSTRAIN_DBS:
+        stderr.write("Invalid VirStrain DB: %s (options: %s)\n" % (args.optional_virstrain, ', '.join(sorted(VIRSTRAIN_DBS)))); exit(1)
 
     # user args are valid, so return
     return args
@@ -198,7 +206,12 @@ def main():
         ('ref_gff',    '%s.reference.gff' % args.run_id, args.reference_gff),
         ('primer_bed', '%s.primers.bed'   % args.run_id, args.primer_bed),
     ]
-    input_files += [('fq%d' % (i+1), '%s.fq%d.fastq' % (args.run_id, i+1), f) for i,f in enumerate(args.fastq_files)]
+    for i, f in enumerate(args.fastq_files):
+        if f.lower().endswith('.gz'):
+            new_fn = '%s.fq%d.fastq.gz' % (args.run_id, i+1)
+        else:
+            new_fn = '%s.fq%d.fastq' % (args.run_id, i+1)
+        input_files.append(('fq%d' % (i+1), new_fn, f))
 
     # check destination
     if not args.destination.lower().startswith('s3://'):
@@ -278,7 +291,8 @@ def main():
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
         rf_file.write('        # Trim reads using %s\n' % args.read_trimmer)
         rf_file.write('        %s "Trimming reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_trimmer, local_fns['vireflow_log']))
-        for rf_var, local_fn, p in input_files:
+        for rf_var, fq_fn, p in input_files:
+            local_fn = '%s/%s' % (outdir, fq_fn)
             if not rf_var.startswith('fq'):
                 continue
             trimmed_rf_var = 'trimmed_%s' % rf_var
@@ -438,11 +452,19 @@ def main():
         rf_file.write('\n')
 
     # optional: convert trimmed BAM to FASTQ
-    if args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades: # add other SPAdes version booleans here
+    if args.optional_virstrain is not None or args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades:
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
         rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
         rf_file.write('        %s "Converting trimmed sorted BAM to FASTQ (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        bedtools bamtofastq -i "%s" -fq "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['trimmed_sorted_fastq']))
+        rf_file.write('\n')
+
+    # optional: run VirStrain
+    if args.optional_virstrain is not None:
+        local_fns['virstrain_outdir'] = "%s/%s.virstrain_output" % (outdir, args.run_id)
+        rf_file.write('        # Run VirStrain (optional) (DB: %s)\n' % args.optional_virstrain)
+        rf_file.write('        %s "Running VirStrain (optional) (DB: %s)" >> %s\n' % (DATE_COMMAND_BASH, args.optional_virstrain, local_fns['vireflow_log']))
+        rf_file.write('        virstrain -i "%s" -d "/usr/local/bin/VirStrain_DB/%s" -o "%s"\n' % (local_fns['trimmed_sorted_fastq'], args.optional_virstrain, local_fns['virstrain_outdir']))
         rf_file.write('\n')
 
     # optional: run SPAdes (coronaSPAdes mode)
