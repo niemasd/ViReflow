@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.15'
+VERSION = 'latest' #'1.0.16' TODO
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -53,6 +53,7 @@ HELP_TEXT_MINIA = "Run minia (optional)"
 HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
 HELP_TEXT_PI = "Compute pi diversity metric (optional)"
 HELP_TEXT_RNAVIRALSPADES = "Run SPAdes in rnaviralSPAdes mode (optional)"
+HELP_TEXT_UNICYCLER = "Run Unicycler (optional)"
 HELP_TEXT_VIRSTRAIN = "Run VirStrain (optional) (select DB: %s)" % ', '.join(sorted(VIRSTRAIN_DBS))
 
 # clear argv
@@ -122,6 +123,7 @@ def parse_args():
     parser.add_argument('--optional_spades_coronaspades', action='store_true', help=HELP_TEXT_CORONASPADES)
     parser.add_argument('--optional_spades_metaviralspades', action='store_true', help=HELP_TEXT_METAVIRALSPADES)
     parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help=HELP_TEXT_RNAVIRALSPADES)
+    parser.add_argument('--optional_unicycler', action='store_true', help=HELP_TEXT_UNICYCLER)
     parser.add_argument('--optional_minia', action='store_true', help=HELP_TEXT_MINIA)
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
@@ -356,7 +358,7 @@ def main():
     rf_file.write('\n')
     rf_file.write('\n')
 
-	# sort mapped reads
+    # sort mapped reads
     local_fns['trimmed_sorted_bam'] = "%s/%s.trimmed.sorted.bam" % (outdir, args.run_id)
     rf_file.write('        # Sort mapped reads\n')
     rf_file.write('        %s "Sorting mapped reads" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
@@ -455,7 +457,12 @@ def main():
         rf_file.write('\n')
 
     # optional: convert trimmed BAM to FASTQ
-    if args.optional_virstrain is not None or args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades or args.optional_minia:
+    if args.optional_virstrain is not None \
+        or args.optional_spades_coronaspades \
+        or args.optional_spades_metaviralspades \
+        or args.optional_spades_rnaviralspades \
+        or args.optional_unicycler \
+        or args.optional_minia:
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
         rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
         rf_file.write('        %s "Converting trimmed sorted BAM to FASTQ (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
@@ -464,10 +471,11 @@ def main():
 
     # optional: run VirStrain
     if args.optional_virstrain is not None:
-        local_fns['virstrain_outdir'] = "%s/%s.virstrain_output" % (outdir, args.run_id)
+        local_fns['virstrain_targz'] = "%s/%s.virstrain.output.%s.tar.gz" % (outdir, args.run_id, args.optional_virstrain)
         rf_file.write('        # Run VirStrain (optional) (DB: %s)\n' % args.optional_virstrain)
         rf_file.write('        %s "Running VirStrain (optional) (DB: %s)" >> %s\n' % (DATE_COMMAND_BASH, args.optional_virstrain, local_fns['vireflow_log']))
-        rf_file.write('        virstrain -i "%s" -d "/usr/local/bin/VirStrain_DB/%s" -o "%s"\n' % (local_fns['trimmed_sorted_fastq'], args.optional_virstrain, local_fns['virstrain_outdir']))
+        rf_file.write('        virstrain -i "%s" -d "/usr/local/bin/VirStrain_DB/%s" -o "virstrain_out"\n' % (local_fns['trimmed_sorted_fastq'], args.optional_virstrain))
+        rf_file.write('        tar -cf - "virstrain_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['virstrain_targz']))
         rf_file.write('\n')
 
     # optional: run SPAdes (coronaSPAdes mode)
@@ -477,17 +485,6 @@ def main():
         rf_file.write('        %s "Running coronaSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        coronaspades.py --threads %d -s "%s" -o "coronaspades_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
         rf_file.write('        tar -cf - "coronaspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['coronaspades_targz']))
-        rf_file.write('\n')
-
-    # optional: run minia
-    if args.optional_minia:
-        local_fns['minia_outdir'] = "%s/%s.minia_output" % (outdir, args.run_id)
-        rf_file.write('        # Run minia (optional)\n')
-        rf_file.write('        %s "Running minia (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-        rf_file.write('        mkdir -p "%s"\n' % local_fns['minia_outdir'])
-        rf_file.write('        cd "%s"\n' % local_fns['minia_outdir'])
-        rf_file.write('        minia -in "../../%s"\n' % local_fns['trimmed_sorted_fastq'])
-        rf_file.write('        cd ../..\n')
         rf_file.write('\n')
 
     # optional: run SPAdes (metaviralSPAdes mode)
@@ -506,6 +503,27 @@ def main():
         rf_file.write('        %s "Running rnaviralSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        rnaviralspades.py --threads %d -s "%s" -o "rnaviralspades_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
         rf_file.write('        tar -cf - "rnaviralspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['rnaviralspades_targz']))
+        rf_file.write('\n')
+
+    # optional: run Unicycler
+    if args.optional_unicycler:
+        local_fns['unicycler_targz'] = "%s/%s.unicycler.output.tar.gz" % (outdir, args.run_id)
+        rf_file.write('        # Run Unicycler (optional)\n')
+        rf_file.write('        %s "Running Unicycler (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        unicycler -t %d -s "%s" -o "unicycler_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
+        rf_file.write('        tar -cf - "unicycler_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['unicycler_targz']))
+        rf_file.write('\n')
+
+    # optional: run minia
+    if args.optional_minia:
+        local_fns['minia_targz'] = "%s/%s.minia.output.tar.gz" % (outdir, args.run_id)
+        rf_file.write('        # Run minia (optional)\n')
+        rf_file.write('        %s "Running minia (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        mkdir -p "minia_out"\n')
+        rf_file.write('        cd "minia_out"\n')
+        rf_file.write('        minia -nb-cores %d -in "../%s"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
+        rf_file.write('        cd ..\n')
+        rf_file.write('        tar -cf - "minia_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['minia_targz']))
         rf_file.write('\n')
 
     # remove redundant files before compressing output
