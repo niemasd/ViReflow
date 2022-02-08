@@ -10,7 +10,7 @@ ViReflow is a tool for constructing elastically-scaling parallelized automated A
 * **Call variants** using **[LoFreq](https://csb5.github.io/lofreq/) (default)**, [freebayes](https://github.com/freebayes/freebayes), [iVar](https://github.com/andersen-lab/ivar)
 * **Calculate depth** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
 * **Call a consensus sequence** of high-depth regions from the variants using **[bcftools](http://samtools.github.io/bcftools/bcftools.html)**
-* **OPTIONAL:**
+* ***OPTIONAL:***
   * **Assign a COVID-19 lineage** using **[Pangolin](https://pangolin.cog-uk.io/)**
   * **Assign a viral lineage** using **[VirStrain](https://github.com/liaoherui/VirStrain)**
   * **Assemble a *de novo* genome** using **[coronaSPAdes](https://cab.spbu.ru/software/coronaspades)**
