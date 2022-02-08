@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = 'latest' # '1.0.15' TODO REMOVE 'latest'
+VERSION = '1.0.15'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -545,14 +545,14 @@ def run_gui():
 
         # create applet
         root = Tk()
-        root.geometry("600x600")
+        root.geometry("600x700")
 
         # set up main frame
         frame = Frame(root)
         frame.pack()
 
         # add header
-        header = Label(frame, text="ViReflow v%s" % VERSION, font=('Arial',24))
+        header = Label(frame, text="ViReflow (%s)" % VERSION, font=('Arial',24))
         header.pack()
 
         # handle input CSV selection
@@ -649,30 +649,46 @@ def run_gui():
         dropdown_variant_caller = OptionMenu(frame, dropdown_variant_caller_var, *sorted(("%s%s" % (dropdown_variant_caller_prefix,v)) for v in VARIANT_CALLERS))
         dropdown_variant_caller.pack()
 
+        # optional header
+        optional_header = Label(frame, text="\n=== Optional Analyses ===", font=('Arial',14))
+        optional_header.pack()
+
         # handle pangolin toggle
         check_pangolin_var = IntVar(frame)
-        check_pangolin = Checkbutton(frame, text=HELP_TEXT_PANGOLIN, variable=check_pangolin_var, onvalue=1, offvalue=0)
+        check_pangolin = Checkbutton(frame, text=HELP_TEXT_PANGOLIN.split(" (optional)")[0].strip(), variable=check_pangolin_var, onvalue=1, offvalue=0)
         check_pangolin.pack()
+
+        # handle virstrain selection
+        dropdown_virstrain_prefix = "VirStrain DB: "
+        dropdown_virstrain_var = StringVar(frame)
+        dropdown_virstrain_var.set("%sNone" % dropdown_virstrain_prefix)
+        dropdown_virstrain = OptionMenu(frame, dropdown_virstrain_var, *(["%sNone" % dropdown_virstrain_prefix] + sorted(("%s%s" % (dropdown_virstrain_prefix,db)) for db in VIRSTRAIN_DBS)))
+        dropdown_virstrain.pack()
 
         # handle pi toggle
         check_pi_var = IntVar(frame)
-        check_pi = Checkbutton(frame, text=HELP_TEXT_PI, variable=check_pi_var, onvalue=1, offvalue=1)
+        check_pi = Checkbutton(frame, text=HELP_TEXT_PI.split(" (optional)")[0].strip(), variable=check_pi_var, onvalue=1, offvalue=1)
         check_pi.pack()
 
         # handle coronaspades toggle
         check_coronaspades_var = IntVar(frame)
-        check_coronaspades = Checkbutton(frame, text=HELP_TEXT_CORONASPADES, variable=check_coronaspades_var, onvalue=1, offvalue=0)
+        check_coronaspades = Checkbutton(frame, text=HELP_TEXT_CORONASPADES.split(" (optional)")[0].strip(), variable=check_coronaspades_var, onvalue=1, offvalue=0)
         check_coronaspades.pack()
 
         # handle metaviralspades toggle
         check_metaviralspades_var = IntVar(frame)
-        check_metaviralspades = Checkbutton(frame, text=HELP_TEXT_METAVIRALSPADES, variable=check_metaviralspades_var, onvalue=1, offvalue=0)
+        check_metaviralspades = Checkbutton(frame, text=HELP_TEXT_METAVIRALSPADES.split(" (optional)")[0].strip(), variable=check_metaviralspades_var, onvalue=1, offvalue=0)
         check_metaviralspades.pack()
 
         # handle rnaviralspades toggle
         check_rnaviralspades_var = IntVar(frame)
-        check_rnaviralspades = Checkbutton(frame, text=HELP_TEXT_RNAVIRALSPADES, variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
+        check_rnaviralspades = Checkbutton(frame, text=HELP_TEXT_RNAVIRALSPADES.split(" (optional)")[0].strip(), variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
         check_rnaviralspades.pack()
+
+        # handle minia toggle
+        check_minia_var = IntVar(frame)
+        check_minia = Checkbutton(frame, text=HELP_TEXT_MINIA.split(" (optional)")[0].strip(), variable=check_minia_var, onvalue=1, offvalue=0)
+        check_minia.pack()
 
         # add generate button
         def finish_applet():
@@ -744,6 +760,8 @@ def run_gui():
                 sys.argv.append('--read_mapper'); sys.argv.append(dropdown_mapper_var.get().split(':')[-1].strip())
                 sys.argv.append('--read_trimmer'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
                 sys.argv.append('--variant_caller'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
+                if dropdown_virstrain.get().split(':')[-1].strip() != 'None':
+                    sys.argv.append('--optional_virstrain'); sys.argv.append(dropdown_virstrain.get().split(':')[-1].strip())
                 if check_pangolin_var.get() == 1:
                     sys.argv.append('--optional_pangolin')
                 if check_pi_var.get() == 1:
@@ -754,6 +772,8 @@ def run_gui():
                     sys.argv.append('--optional_spades_metaviralspades')
                 if check_rnaviralspades_var.get() == 1:
                     sys.argv.append('--optional_spades_rnaviralspades')
+                if check_minia_var.get() == 1:
+                    sys.argv.append('--optional_minia')
                 sys.argv.append(button_csv['text'].split(':')[-1].strip())
                 chdir(button_out['text'].split(':')[-1].strip())
                 try:
@@ -764,7 +784,7 @@ def run_gui():
         button_generate.pack(padx=3, pady=3)
 
         # add title and execute GUI
-        root.title("ViReflow v%s" % VERSION)
+        root.title("ViReflow (%s)" % VERSION)
         root.mainloop()
     except:
         print("ERROR: Unable to import Tkinter", file=stderr); exit(1)
