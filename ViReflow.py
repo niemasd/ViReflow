@@ -484,7 +484,10 @@ def main():
         local_fns['minia_outdir'] = "%s/%s.minia_output" % (outdir, args.run_id)
         rf_file.write('        # Run minia (optional)\n')
         rf_file.write('        %s "Running minia (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-        rf_file.write('        minia -in "%s" -out-dir "%s" -out-tmp "%s"\n' % (local_fns['trimmed_sorted_fastq'], local_fns['minia_outdir'], local_fns['minia_outdir']))
+        rf_file.write('        mkdir -p "%s"\n' % local_fns['minia_outdir'])
+        rf_file.write('        cd "%s"\n' % local_fns['minia_outdir'])
+        rf_file.write('        minia -in "../../%s"\n' % local_fns['trimmed_sorted_fastq'])
+        rf_file.write('        cd ../..\n')
         rf_file.write('\n')
 
     # optional: run SPAdes (metaviralSPAdes mode)
