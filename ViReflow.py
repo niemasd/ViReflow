@@ -563,7 +563,7 @@ def run_gui():
 
         # create applet
         root = Tk()
-        root.geometry("600x700")
+        root.geometry("600x725")
 
         # set up main frame
         frame = Frame(root)
@@ -703,6 +703,11 @@ def run_gui():
         check_rnaviralspades = Checkbutton(frame, text=HELP_TEXT_RNAVIRALSPADES.split(" (optional)")[0].strip(), variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
         check_rnaviralspades.pack()
 
+        # handle unicycler toggle
+        check_unicycler_var = IntVar(frame)
+        check_unicycler = Checkbutton(frame, text=HELP_TEXT_UNICYCLER.split(" (optional)")[0].strip(), variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
+        check_unicycler.pack()
+
         # handle minia toggle
         check_minia_var = IntVar(frame)
         check_minia = Checkbutton(frame, text=HELP_TEXT_MINIA.split(" (optional)")[0].strip(), variable=check_minia_var, onvalue=1, offvalue=0)
@@ -790,6 +795,8 @@ def run_gui():
                     sys.argv.append('--optional_spades_metaviralspades')
                 if check_rnaviralspades_var.get() == 1:
                     sys.argv.append('--optional_spades_rnaviralspades')
+                if check_unicycler_var.get() == 1:
+                    sys.argv.append('--optional_unicycler')
                 if check_minia_var.get() == 1:
                     sys.argv.append('--optional_minia')
                 sys.argv.append(button_csv['text'].split(':')[-1].strip())
