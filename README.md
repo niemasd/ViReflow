@@ -12,9 +12,11 @@ ViReflow is a tool for constructing elastically-scaling parallelized automated A
 * **Call a consensus sequence** of high-depth regions from the variants using **[bcftools](http://samtools.github.io/bcftools/bcftools.html)**
 * **OPTIONAL:**
   * **Assign a COVID-19 lineage** using **[Pangolin](https://pangolin.cog-uk.io/)**
+  * **Assign a viral lineage** using **[VirStrain](https://github.com/liaoherui/VirStrain)**
   * **Assemble a *de novo* genome** using **[coronaSPAdes](https://cab.spbu.ru/software/coronaspades)**
   * **Assemble a *de novo* genome** using **[metaviralSPAdes](https://doi.org/10.1093/bioinformatics/btaa490)**
   * **Assemble a *de novo* genome** using **[rnaviralSPAdes](https://github.com/ablab/spades#supported-data-types)**
+  * **Assemble a *de novo* genome** using **[minia](https://github.com/GATB/minia)**
 
 ## Installation
 ViReflow is written in Python 3. You can simply download [ViReflow.py](ViReflow.py) to your machine and make it executable:
