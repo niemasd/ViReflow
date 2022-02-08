@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.14'
+VERSION = 'latest' # '1.0.15' TODO REMOVE 'latest'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -49,6 +49,7 @@ DEFAULT_VARIANT_CALLER = 'lofreq'
 # help text
 HELP_TEXT_CORONASPADES = "Run SPAdes in coronaSPAdes mode (optional)"
 HELP_TEXT_METAVIRALSPADES = "Run SPAdes in metaviralSPAdes mode (optional)"
+HELP_TEXT_MINIA = "Run minia (optional)"
 HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
 HELP_TEXT_PI = "Compute pi diversity metric (optional)"
 HELP_TEXT_RNAVIRALSPADES = "Run SPAdes in rnaviralSPAdes mode (optional)"
@@ -121,6 +122,7 @@ def parse_args():
     parser.add_argument('--optional_spades_coronaspades', action='store_true', help=HELP_TEXT_CORONASPADES)
     parser.add_argument('--optional_spades_metaviralspades', action='store_true', help=HELP_TEXT_METAVIRALSPADES)
     parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help=HELP_TEXT_RNAVIRALSPADES)
+    parser.add_argument('--optional_minia', action='store_true', help=HELP_TEXT_MINIA)
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
     args = parser.parse_args()
@@ -160,9 +162,10 @@ def parse_args():
         stderr.write("Invalid variant caller: %s\n" % args.variant_caller); exit(1)
 
     # check VirStrain DB selection is valid
-    args.optional_virstrain = args.optional_virstrain.upper()
-    if args.optional_virstrain is not None and args.optional_virstrain not in VIRSTRAIN_DBS:
-        stderr.write("Invalid VirStrain DB: %s (options: %s)\n" % (args.optional_virstrain, ', '.join(sorted(VIRSTRAIN_DBS)))); exit(1)
+    if args.optional_virstrain is not None:
+        args.optional_virstrain = args.optional_virstrain.upper()
+        if args.optional_virstrain not in VIRSTRAIN_DBS:
+            stderr.write("Invalid VirStrain DB: %s (options: %s)\n" % (args.optional_virstrain, ', '.join(sorted(VIRSTRAIN_DBS)))); exit(1)
 
     # user args are valid, so return
     return args
@@ -225,7 +228,7 @@ def main():
     else:
         rf_file = open(args.output, 'w')
     rf_file.write('// Run ID: %s\n' % args.run_id)
-    rf_file.write('// Created using ViReflow %s\n' % VERSION)
+    rf_file.write('// Created using ViReflow (%s)\n' % VERSION)
     rf_file.write('// ViReflow command: %s\n' % ' '.join(sys.argv))
     rf_file.write('@requires(disk := %s)\n' % INSTANCE_INFO['disk'])
     rf_file.write('val Main = {\n')
@@ -452,7 +455,7 @@ def main():
         rf_file.write('\n')
 
     # optional: convert trimmed BAM to FASTQ
-    if args.optional_virstrain is not None or args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades:
+    if args.optional_virstrain is not None or args.optional_spades_coronaspades or args.optional_spades_metaviralspades or args.optional_spades_rnaviralspades or args.optional_minia:
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
         rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
         rf_file.write('        %s "Converting trimmed sorted BAM to FASTQ (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
@@ -474,6 +477,14 @@ def main():
         rf_file.write('        %s "Running coronaSPAdes (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
         rf_file.write('        coronaspades.py --threads %d -s "%s" -o "coronaspades_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
         rf_file.write('        tar -cf - "coronaspades_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['coronaspades_targz']))
+        rf_file.write('\n')
+
+    # optional: run minia
+    if args.optional_minia:
+        local_fns['minia_outdir'] = "%s/%s.minia_output" % (outdir, args.run_id)
+        rf_file.write('        # Run minia (optional)\n')
+        rf_file.write('        %s "Running minia (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        minia -in "%s" -out-dir "%s" -out-tmp "%s"\n' % (local_fns['trimmed_sorted_fastq'], local_fns['minia_outdir'], local_fns['minia_outdir']))
         rf_file.write('\n')
 
     # optional: run SPAdes (metaviralSPAdes mode)
