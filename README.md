@@ -2,7 +2,15 @@
 ViReflow is a tool for constructing elastically-scaling parallelized automated AWS pipelines for viral consensus sequence generation. Given sequence data from a viral sample as well as information about the reference genome and primers, ViReflow generates a [Reflow](https://github.com/grailbio/reflow) file that contains all steps of the workflow, including AWS instance specifications. Because ViReflow is intended to be used with Reflow, the workflows that are developed by ViReflow automatically distribute independent tasks to be run in parallel as well as elastically scale AWS instances based on each individual step of the workflow. ViReflow makes use of compact minimal Docker images for each step of the viral analysis workflow, details about which can be found in the [Niema-Docker](https://github.com/Niema-Docker) GitHub organization.
 
 ## Workflow Summary
-<img src="docs/workflow.png">
+| Read Trimmers | Read Mappers | Variant Callers | Optional Analyses    |
+| ------------- | ------------ | --------------- | -----------------    |
+| fastp         | Bowtie2      | FreeBayes       | coronaSPAdes         |
+| iVar Trim     | BWA-MEM      | iVar Variants   | metaviralSPAdes      |
+| PRINSEQ       | Minimap2     | LoFreq          | minia                |
+| pTrimmer      |              |                 | Pangolin (COVID-19)  |
+|               |              |                 | rnaviralSPAdes       |
+|               |              |                 | VirStrain            |
+|               |              |                 | *π* Diversity Metric | 
 
 * **Trim the reads** using **[iVar](https://github.com/andersen-lab/ivar) (default)**, [fastp](https://github.com/OpenGene/fastp), [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
 * **Map the reads** using **[Minimap2](https://github.com/lh3/minimap2) (default)**, [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/)
