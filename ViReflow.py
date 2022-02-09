@@ -28,7 +28,7 @@ READ_TRIMMERS = {
     }
 }
 READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
-READ_MAPPERS = {'bowtie2', 'bwa', 'minimap2'}
+READ_MAPPERS = {'bowtie2', 'bwa', 'hisat2', 'minimap2'}
 VARIANT_CALLERS = {'freebayes', 'ivar', 'lofreq'}
 VIRSTRAIN_DBS = {'H1N1', 'HIV', 'SCOV2'}
 INSTANCE_INFO = {
@@ -345,6 +345,9 @@ def main():
     elif args.read_mapper == 'bwa':
         rf_file.write('        bwa index "%s" 1>&2\n' % local_fns['ref_fas'])
         rf_file.write('        bwa mem -t %d "%s" %s' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map)))
+    elif args.read_mapper == 'hisat2':
+        rf_file.write('        hisat2-build -p %d "%s" ref 1>&2\n' % (args.threads, local_fns['ref_fas']))
+        rf_file.write('        hisat2 -p %d -x ref -q "%s"' % (args.threads, ','.join(local_fq_fns_to_map)))
     elif args.read_mapper == 'minimap2':
         rf_file.write('        minimap2 -t %d -a -x sr "%s" %s' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map)))
     else:
