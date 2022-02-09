@@ -49,6 +49,7 @@ DEFAULT_VARIANT_CALLER = 'lofreq'
 # help text
 HELP_TEXT_CORONASPADES = "Run SPAdes in coronaSPAdes mode (optional)"
 HELP_TEXT_METAVIRALSPADES = "Run SPAdes in metaviralSPAdes mode (optional)"
+HELP_TEXT_MEGAHIT = "Run MEGAHIT (optional)"
 HELP_TEXT_MINIA = "Run minia (optional)"
 HELP_TEXT_PANGOLIN = "Run Pangolin (optional)"
 HELP_TEXT_PI = "Compute pi diversity metric (optional)"
@@ -124,6 +125,7 @@ def parse_args():
     parser.add_argument('--optional_spades_metaviralspades', action='store_true', help=HELP_TEXT_METAVIRALSPADES)
     parser.add_argument('--optional_spades_rnaviralspades', action='store_true', help=HELP_TEXT_RNAVIRALSPADES)
     parser.add_argument('--optional_unicycler', action='store_true', help=HELP_TEXT_UNICYCLER)
+    parser.add_argument('--optional_megahit', action='store_true', help=HELP_TEXT_MEGAHIT)
     parser.add_argument('--optional_minia', action='store_true', help=HELP_TEXT_MINIA)
     parser.add_argument('-u', '--update', action='store_true', help="Update ViReflow (current version: %s)" % VERSION)
     parser.add_argument('fastq_files', metavar='FQ', type=str, nargs='+', help="Input FASTQ Files (s3/http/https/ftp; single biological sample)")
@@ -462,6 +464,7 @@ def main():
         or args.optional_spades_metaviralspades \
         or args.optional_spades_rnaviralspades \
         or args.optional_unicycler \
+        or args.optional_megahit \
         or args.optional_minia:
         local_fns['trimmed_sorted_fastq'] = 'tmp.trimmed.sorted.fastq'
         rf_file.write('        # Convert trimmed BAM to FASTQ (optional)\n')
@@ -514,6 +517,15 @@ def main():
         rf_file.write('        tar -cf - "unicycler_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['unicycler_targz']))
         rf_file.write('\n')
 
+    # optional: run MEGAHIT
+    if args.optional_megahit:
+        local_fns['megahit_targz'] = "%s/%s.megahit.output.tar.gz" % (outdir, args.run_id)
+        rf_file.write('        # Run MEGAHIT (optional)\n')
+        rf_file.write('        %s "Running MEGAHIT (optional)" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        megahit --num-cpu-threads %d --read "%s" --out-dir "megahit_out"\n' % (args.threads, local_fns['trimmed_sorted_fastq']))
+        rf_file.write('        tar -cf - "megahit_out" | pigz -%d -p %d > "%s"\n' % (args.compression_level, args.threads, local_fns['megahit_targz']))
+        rf_file.write('\n')
+
     # optional: run minia
     if args.optional_minia:
         local_fns['minia_targz'] = "%s/%s.minia.output.tar.gz" % (outdir, args.run_id)
@@ -563,7 +575,7 @@ def run_gui():
 
         # create applet
         root = Tk()
-        root.geometry("600x725")
+        root.geometry("600x750")
 
         # set up main frame
         frame = Frame(root)
@@ -685,7 +697,7 @@ def run_gui():
 
         # handle pi toggle
         check_pi_var = IntVar(frame)
-        check_pi = Checkbutton(frame, text=HELP_TEXT_PI.split(" (optional)")[0].strip(), variable=check_pi_var, onvalue=1, offvalue=1)
+        check_pi = Checkbutton(frame, text=HELP_TEXT_PI.split(" (optional)")[0].strip(), variable=check_pi_var, onvalue=1, offvalue=0)
         check_pi.pack()
 
         # handle coronaspades toggle
@@ -705,8 +717,13 @@ def run_gui():
 
         # handle unicycler toggle
         check_unicycler_var = IntVar(frame)
-        check_unicycler = Checkbutton(frame, text=HELP_TEXT_UNICYCLER.split(" (optional)")[0].strip(), variable=check_rnaviralspades_var, onvalue=1, offvalue=0)
+        check_unicycler = Checkbutton(frame, text=HELP_TEXT_UNICYCLER.split(" (optional)")[0].strip(), variable=check_unicycler_var, onvalue=1, offvalue=0)
         check_unicycler.pack()
+
+        # handle megahit toggle
+        check_megahit_var = IntVar(frame)
+        check_megahit = Checkbutton(frame, text=HELP_TEXT_MEGAHIT.split(" (optional)")[0].strip(), variable=check_megahit_var, onvalue=1, offvalue=0)
+        check_megahit.pack()
 
         # handle minia toggle
         check_minia_var = IntVar(frame)
@@ -797,6 +814,8 @@ def run_gui():
                     sys.argv.append('--optional_spades_rnaviralspades')
                 if check_unicycler_var.get() == 1:
                     sys.argv.append('--optional_unicycler')
+                if check_megahit_var.get() == 1:
+                    sys.argv.append('--optional_megahit')
                 if check_minia_var.get() == 1:
                     sys.argv.append('--optional_minia')
                 sys.argv.append(button_csv['text'].split(':')[-1].strip())
