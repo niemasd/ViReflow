@@ -38,71 +38,7 @@ While ViReflow itself only depends on Python 3, the pipelines it produces are [R
 ViReflow can be used as follows:
 
 ```
-usage: ViReflow.py [-h] -id RUN_ID -d DESTINATION -rf REFERENCE_FASTA -rg
-                   REFERENCE_GFF -p PRIMER_BED [-o OUTPUT] [-t THREADS]
-                   [-cl COMPRESSION_LEVEL] [--mapped_read_cap MAPPED_READ_CAP]
-                   [--min_alt_freq MIN_ALT_FREQ] [--read_mapper READ_MAPPER]
-                   [--read_trimmer READ_TRIMMER]
-                   [--variant_caller VARIANT_CALLER] [--optional_pangolin]
-                   [--optional_spades_coronaspades]
-                   [--optional_spades_metaviralspades]
-                   [--optional_spades_rnaviralspades] [-u]
-                   FQ [FQ ...]
-
-ViReflow: An elastically-scaling parallelized AWS pipeline for viral consensus
-sequence generation
-
-positional arguments:
-  FQ                    Input FASTQ Files (s3/http/https/ftp; single
-                        biological sample)
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -id RUN_ID, --run_id RUN_ID
-                        Unique Run Identifier (for output file naming)
-                        (default: None)
-  -d DESTINATION, --destination DESTINATION
-                        Destination for Results (s3 folder) (default: None)
-  -rf REFERENCE_FASTA, --reference_fasta REFERENCE_FASTA
-                        Reference Genome Sequence (s3/http/https/ftp to FASTA)
-                        (default: None)
-  -rg REFERENCE_GFF, --reference_gff REFERENCE_GFF
-                        Reference Genome Annotation (s3/http/https/ftp to
-                        GFF3) (default: None)
-  -p PRIMER_BED, --primer_bed PRIMER_BED
-                        Primer (s3/http/https/ftp to BED) (default: None)
-  -o OUTPUT, --output OUTPUT
-                        Output Reflow File (rf) (default: stdout)
-  -t THREADS, --threads THREADS
-                        Number of Threads (default: 1)
-  -cl COMPRESSION_LEVEL, --compression_level COMPRESSION_LEVEL
-                        Compression Level (1 = fastest, 9 = best) (default: 1)
-  --mapped_read_cap MAPPED_READ_CAP
-                        Successfully-Mapped Read Cap (default: None)
-  --min_alt_freq MIN_ALT_FREQ
-                        Minimum Alt Allele Frequency for consensus sequence
-                        (default: 0.5)
-  --read_mapper READ_MAPPER
-                        Read Mapper (options: bowtie2, bwa, minimap2)
-                        (default: minimap2)
-  --read_trimmer READ_TRIMMER
-                        Read Trimmer (options: fastp, ivar, prinseq, ptrimmer)
-                        (default: ivar)
-  --variant_caller VARIANT_CALLER
-                        Variant Caller (options: freebayes, ivar, lofreq)
-                        (default: lofreq)
-  --optional_pangolin   Run Pangolin (optional) (default: False)
-  --optional_spades_coronaspades
-                        Run SPAdes in coronaSPAdes mode (optional) (default:
-                        False)
-  --optional_spades_metaviralspades
-                        Run SPAdes in metaviralSPAdes mode (optional)
-                        (default: False)
-  --optional_spades_rnaviralspades
-                        Run SPAdes in rnaviralSPAdes mode (optional) (default:
-                        False)
-  -u, --update          Update ViReflow (current version: 1.0.12) (default:
-                        False)
+usage: ViReflow.py TODO UPDATE
 ```
 
 For extensive details about each command line argument, see the [Command Line Argument Descriptions](../../wiki/Command-Line-Argument-Descriptions) section of the ViReflow wiki.
@@ -125,6 +61,18 @@ In a given sequencing experiment, if you have multiple samples you want to run (
 
 ```bash
 for s in sample1 sample2 [REST_OF_SAMPLES] sampleN ; do ViReflow.py -id $s -o $s.rf [REST_OF_VIREFLOW_ARGS] ; done
+```
+
+Alternatively, you can create a CSV file in the following format that, in which the first column contains the prefix of the output Reflow run file's name (i.e., filename minus `.rf`), the second column contains the run ID, and all remaining columns denote the FASTQ files. You can then run ViReflow as follows to generate the Reflow files for all runs:
+
+|         |         |                  |                                  |
+| ------- | ------- | ---------------- | -------------------------------- |
+| sample1 | sample1 | sample1_R1.fastq | s3://my_samples/sample1_R2.fastq |
+| sample2 | sample2 | sample2_R1.fastq | s3://my_samples/sample2_R2.fastq |
+| ...     | ...     | ...              | ...                              |
+
+```
+ViReflow.py [VIREFLOW_ARGS] my_samples.csv
 ```
 
 Then, you can use the [`rf_batch.py`](rf_batch.py) script to create a batch Reflow run file that will execute all of the individual sample Reflow run files:
