@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = 'latest' #'1.0.16' TODO
+VERSION = '1.0.16'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
