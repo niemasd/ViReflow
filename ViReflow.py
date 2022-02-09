@@ -798,11 +798,11 @@ def run_gui():
                 sys.argv.append('-p'); sys.argv.append(entry_bed.get().strip())
                 sys.argv.append('-t'); sys.argv.append(entry_threads.get().strip())
                 sys.argv.append('-cl'); sys.argv.append(dropdown_compress_var.get().split(':')[-1].strip())
-                #try:
-                #    read_cap = int(entry_cap.get())
-                #    sys.argv.append('--mapped_read_cap'); sys.argv.append(str(read_cap))
-                #except:
-                #    pass
+                try:
+                    read_cap = int(entry_cap.get())
+                    sys.argv.append('--mapped_read_cap'); sys.argv.append(str(read_cap))
+                except:
+                    pass
                 sys.argv.append('--min_alt_freq'); sys.argv.append(entry_min_alt.get().strip())
                 sys.argv.append('--read_mapper'); sys.argv.append(dropdown_mapper_var.get().split(':')[-1].strip())
                 sys.argv.append('--read_trimmer'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
