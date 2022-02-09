@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.17'
+VERSION = '1.0.17' # TODO increment version
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -42,6 +42,7 @@ DATE_COMMAND_BASH = 'echo "[$(date +"%Y-%m-%d %T")]"'
 DEFAULT_THREADS = 1
 DEFAULT_COMPRESS = 1
 DEFAULT_MIN_ALT_FREQ = 0.5
+DEFAULT_MIN_DEPTH = 10
 DEFAULT_READ_MAPPER = 'minimap2'
 DEFAULT_READ_TRIMMER = 'ivar'
 DEFAULT_VARIANT_CALLER = 'lofreq'
@@ -115,6 +116,7 @@ def parse_args():
     parser.add_argument('-cl', '--compression_level', required=False, type=int, default=DEFAULT_COMPRESS, help="Compression Level (1 = fastest, 9 = best)")
     parser.add_argument('--mapped_read_cap', required=False, type=int, default=None, help="Successfully-Mapped Read Cap")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=DEFAULT_MIN_ALT_FREQ, help="Minimum Alt Allele Frequency for consensus sequence")
+    parser.add_argument('--min_depth', required=False, type=int, default=DEFAULT_MIN_DEPTH, help="Minimum Depth for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default=DEFAULT_READ_MAPPER, help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default=DEFAULT_READ_TRIMMER, help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
     parser.add_argument('--variant_caller', required=False, type=str, default=DEFAULT_VARIANT_CALLER, help="Variant Caller (options: %s)" % ', '.join(sorted(VARIANT_CALLERS)))
@@ -144,7 +146,15 @@ def parse_args():
 
     # check compression level is valid
     if args.compression_level < 1 or args.compression_level > 9:
-        stderr.write("Invalid compression level: %s\n" % args.compression_level); exit(1)
+        stderr.write("Invalid compression level (must be 1-9): %s\n" % args.compression_level); exit(1)
+
+    # check min alt freq
+    if args.min_alt_freq < 0 or args.min_alt_freq > 1:
+        stderr.write("Invalid minimum alt allele frequency (must be 0-1): %s" % str(args.min_alt_freq)); exit(1)
+
+    # check min depth
+    if args.min_depth < 0:
+        stderr.write("Invalid minimum depth (must be >= 0): %s" % str(args.min_depth)); exit(1)
 
     # check read cap
     if args.mapped_read_cap is not None and args.mapped_read_cap < 1:
@@ -413,7 +423,8 @@ def main():
         rf_file.write('        cat "%s" | ivar variants -r "%s" -g "%s" -p "%s" -m 10 1>&2\n' % (local_fns['pileup_txt'], local_fns['ref_fas'], local_fns['ref_gff'], local_fns['variants_tsv']))
         rf_file.write('        ivar_variants_to_vcf.py "%s" "%s" 1>&2\n' % (local_fns['variants_tsv'], local_fns['variants_vcf']))
     elif args.variant_caller == 'lofreq':
-        rf_file.write('        lofreq call -f "%s" --call-indels "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['variants_vcf']))
+        rf_file.write('        lofreq indelqual -f "%s" --dindel -o "tmp.lofreq.bam" "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam']))
+        rf_file.write('        lofreq call -f "%s" --call-indels -o "%s" "tmp.lofreq.bam"\n' % (local_fns['ref_fas'], local_fns['variants_vcf']))
     else:
         stderr.write("Invalid variant caller: %s\n" % args.variant_caller)
         if args.output != 'stdout':
@@ -425,14 +436,14 @@ def main():
     local_fns['depth_txt'] = "%s/%s.depth.txt" % (outdir, args.run_id)
     rf_file.write('        # Call depth from trimmed BAM\n')
     rf_file.write('        %s "Calling depth from trimmed BAM" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        samtools depth -d 0 -Q 0 -q 0 -aa "%s" > "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['depth_txt']))
+    rf_file.write('        samtools depth -J -d 0 -Q 0 -q 0 -aa "%s" > "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['depth_txt']))
     rf_file.write('\n')
 
     # find low-depth regions
     local_fns['low_depth_tsv'] = "%s/%s.low_depth.tsv" % (outdir, args.run_id)
     rf_file.write('        # Find low-depth regions\n')
     rf_file.write('        %s "Finding low-depth regions" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        low_depth_regions "%s" "%s" 10 1>&2\n' % (local_fns['depth_txt'], local_fns['low_depth_tsv'])) # minimum depth of 10
+    rf_file.write('        low_depth_regions "%s" "%s" %d 1>&2\n' % (local_fns['depth_txt'], local_fns['low_depth_tsv'], args.min_depth))
     rf_file.write('\n')
 
     # generate consensus sequence
