@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.16'
+VERSION = '1.0.17'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -344,7 +344,7 @@ def main():
         rf_file.write('        bowtie2 --threads %d -x ref -U "%s"' % (args.threads, ','.join(local_fq_fns_to_map)))
     elif args.read_mapper == 'bwa':
         rf_file.write('        bwa index "%s" 1>&2\n' % local_fns['ref_fas'])
-        rf_file.write('        bwa mem -t %d "%s" %s' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map)))
+        rf_file.write('        bwa mem -p -t %d "%s" %s' % (args.threads, local_fns['ref_fas'], ' '.join('"%s"' % fn for fn in local_fq_fns_to_map)))
     elif args.read_mapper == 'hisat2':
         rf_file.write('        hisat2-build -p %d "%s" ref 1>&2\n' % (args.threads, local_fns['ref_fas']))
         rf_file.write('        hisat2 -p %d -x ref -q "%s"' % (args.threads, ','.join(local_fq_fns_to_map)))
@@ -798,12 +798,16 @@ def run_gui():
                 sys.argv.append('-p'); sys.argv.append(entry_bed.get().strip())
                 sys.argv.append('-t'); sys.argv.append(entry_threads.get().strip())
                 sys.argv.append('-cl'); sys.argv.append(dropdown_compress_var.get().split(':')[-1].strip())
-                sys.argv.append('--mapped_read_cap'); sys.argv.append(entry_cap.get().strip())
+                #try:
+                #    read_cap = int(entry_cap.get())
+                #    sys.argv.append('--mapped_read_cap'); sys.argv.append(str(read_cap))
+                #except:
+                #    pass
                 sys.argv.append('--min_alt_freq'); sys.argv.append(entry_min_alt.get().strip())
                 sys.argv.append('--read_mapper'); sys.argv.append(dropdown_mapper_var.get().split(':')[-1].strip())
                 sys.argv.append('--read_trimmer'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
                 sys.argv.append('--variant_caller'); sys.argv.append(dropdown_trimmer_var.get().split(':')[-1].strip())
-                if dropdown_virstrain.get().split(':')[-1].strip() != 'None':
+                if dropdown_virstrain_var.get().split(':')[-1].strip() != 'None':
                     sys.argv.append('--optional_virstrain'); sys.argv.append(dropdown_virstrain.get().split(':')[-1].strip())
                 if check_pangolin_var.get() == 1:
                     sys.argv.append('--optional_pangolin')
