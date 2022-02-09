@@ -63,13 +63,13 @@ In a given sequencing experiment, if you have multiple samples you want to run (
 for s in sample1 sample2 [REST_OF_SAMPLES] sampleN ; do ViReflow.py -id $s -o $s.rf [REST_OF_VIREFLOW_ARGS] ; done
 ```
 
-Alternatively, you can create a CSV file in the following format that, in which the first column contains the prefix of the output Reflow run file's name (i.e., filename minus `.rf`), the second column contains the run ID, and all remaining columns denote the FASTQ files. You can then run ViReflow as follows to generate the Reflow files for all runs:
+Alternatively, you can create a CSV file in the following format that, in which the first column contains the run ID, and all remaining columns denote the FASTQ files. You can then run ViReflow as follows to generate the Reflow files for all runs:
 
-|         |         |                  |                                  |
-| ------- | ------- | ---------------- | -------------------------------- |
-| sample1 | sample1 | sample1_R1.fastq | s3://my_samples/sample1_R2.fastq |
-| sample2 | sample2 | sample2_R1.fastq | s3://my_samples/sample2_R2.fastq |
-| ...     | ...     | ...              | ...                              |
+|         |                  |                                  |
+| ------- | ---------------- | -------------------------------- |
+| sample1 | sample1_R1.fastq | s3://my_samples/sample1_R2.fastq |
+| sample2 | sample2_R1.fastq | s3://my_samples/sample2_R2.fastq |
+| ...     | ...              | ...                              |
 
 ```
 ViReflow.py [VIREFLOW_ARGS] my_samples.csv
