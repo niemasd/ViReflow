@@ -5,12 +5,13 @@ ViReflow is a tool for constructing elastically-scaling parallelized automated A
 | Read Trimmers | Read Mappers | Variant Callers | Optional Analyses    |
 | ------------- | ------------ | --------------- | -----------------    |
 | fastp         | Bowtie2      | FreeBayes       | coronaSPAdes         |
-| iVar Trim     | BWA-MEM      | iVar Variants   | metaviralSPAdes      |
-| PRINSEQ       | Minimap2     | LoFreq          | minia                |
-| pTrimmer      |              |                 | Pangolin (COVID-19)  |
+| iVar Trim     | BWA-MEM      | iVar Variants   | MEGAHIT              |
+| PRINSEQ       | Minimap2     | LoFreq          | metaviralSPAdes      |
+| pTrimmer      |              |                 | minia                |
+|               |              |                 | Pangolin (COVID-19)  |
 |               |              |                 | rnaviralSPAdes       |
 |               |              |                 | VirStrain            |
-|               |              |                 | *π* Diversity Metric | 
+|               |              |                 | *π* Diversity Metric |
 
 * **Trim the reads** using **[iVar](https://github.com/andersen-lab/ivar) (default)**, [fastp](https://github.com/OpenGene/fastp), [PRINSEQ](http://prinseq.sourceforge.net/), or [pTrimmer](https://github.com/DMU-lilab/pTrimmer)
 * **Map the reads** using **[Minimap2](https://github.com/lh3/minimap2) (default)**, [Bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml), [BWA](http://bio-bwa.sourceforge.net/)
@@ -19,12 +20,8 @@ ViReflow is a tool for constructing elastically-scaling parallelized automated A
 * **Calculate depth** from the trimmed mapped reads using **[samtools](http://www.htslib.org/)**
 * **Call a consensus sequence** of high-depth regions from the variants using **[bcftools](http://samtools.github.io/bcftools/bcftools.html)**
 * ***OPTIONAL:***
-  * **Assign a COVID-19 lineage** using **[Pangolin](https://pangolin.cog-uk.io/)**
-  * **Assign a viral lineage** using **[VirStrain](https://github.com/liaoherui/VirStrain)**
-  * **Assemble a *de novo* genome** using **[coronaSPAdes](https://cab.spbu.ru/software/coronaspades)**
-  * **Assemble a *de novo* genome** using **[metaviralSPAdes](https://doi.org/10.1093/bioinformatics/btaa490)**
-  * **Assemble a *de novo* genome** using **[rnaviralSPAdes](https://github.com/ablab/spades#supported-data-types)**
-  * **Assemble a *de novo* genome** using **[minia](https://github.com/GATB/minia)**
+  * **Assign a COVID-19 lineage** using **[Pangolin](https://pangolin.cog-uk.io/)** (SARS-CoV-2 only) and/or **[VirStrain](https://github.com/liaoherui/VirStrain)**
+  * **Assemble a *de novo* genome** using **[coronaSPAdes](https://cab.spbu.ru/software/coronaspades)**, **[metaviralSPAdes](https://doi.org/10.1093/bioinformatics/btaa490)**, **[rnaviralSPAdes](https://github.com/ablab/spades#supported-data-types)**, **[MEGAHIT](https://github.com/voutcn/megahit)**, and/or **[minia](https://github.com/GATB/minia)**
 
 ## Installation
 ViReflow is written in Python 3. You can simply download [ViReflow.py](ViReflow.py) to your machine and make it executable:
