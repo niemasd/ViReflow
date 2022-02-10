@@ -14,7 +14,7 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.18'
+VERSION = '1.0.19'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
@@ -42,6 +42,7 @@ DATE_COMMAND_BASH = 'echo "[$(date +"%Y-%m-%d %T")]"'
 DEFAULT_THREADS = 1
 DEFAULT_COMPRESS = 1
 DEFAULT_MIN_ALT_FREQ = 0.5
+DEFAULT_MIN_BASE_QUAL = 30
 DEFAULT_MIN_DEPTH = 10
 DEFAULT_READ_MAPPER = 'minimap2'
 DEFAULT_READ_TRIMMER = 'ivar'
@@ -116,6 +117,7 @@ def parse_args():
     parser.add_argument('-cl', '--compression_level', required=False, type=int, default=DEFAULT_COMPRESS, help="Compression Level (1 = fastest, 9 = best)")
     parser.add_argument('--mapped_read_cap', required=False, type=int, default=None, help="Successfully-Mapped Read Cap")
     parser.add_argument('--min_alt_freq', required=False, type=float, default=DEFAULT_MIN_ALT_FREQ, help="Minimum Alt Allele Frequency for consensus sequence")
+    parser.add_argument('--min_base_qual', required=False, type=int, default=DEFAULT_MIN_BASE_QUAL, help="Minimum Base Quality for consensus sequence")
     parser.add_argument('--min_depth', required=False, type=int, default=DEFAULT_MIN_DEPTH, help="Minimum Depth for consensus sequence")
     parser.add_argument('--read_mapper', required=False, type=str, default=DEFAULT_READ_MAPPER, help="Read Mapper (options: %s)" % ', '.join(sorted(READ_MAPPERS)))
     parser.add_argument('--read_trimmer', required=False, type=str, default=DEFAULT_READ_TRIMMER, help="Read Trimmer (options: %s)" % ', '.join(sorted(READ_TRIMMERS_ALL)))
@@ -151,6 +153,10 @@ def parse_args():
     # check min alt freq
     if args.min_alt_freq < 0 or args.min_alt_freq > 1:
         stderr.write("Invalid minimum alt allele frequency (must be 0-1): %s" % str(args.min_alt_freq)); exit(1)
+
+    # check min base qual
+    if args.min_base_qual < 0:
+        stderr.write("Invalid minimum base quality (must be >= 0): %s" % str(args.min_base_qual)); exit(1)
 
     # check min depth
     if args.min_depth < 0:
@@ -318,7 +324,7 @@ def main():
             if args.read_trimmer == 'fastp':
                 rf_file.write('fastp --thread %d --adapter_fasta "%s" -i "%s" -o "%s" 1>&2\n' % (args.threads, local_fns['primer_fas'], local_fn, local_fns[trimmed_rf_var]))
             elif args.read_trimmer == 'prinseq':
-                rf_file.write('prinseq-lite.pl -fastq "%s" -ns_max_n 4 -min_qual_mean 30 -trim_qual_left 30 -trim_qual_right 30 -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "%s"\n' % (local_fn, local_fns[trimmed_rf_var]))
+                rf_file.write('prinseq-lite.pl -fastq "%s" -ns_max_n 4 -min_qual_mean %d -trim_qual_left %d -trim_qual_right %d -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "%s"\n' % (local_fn, args.min_base_qual, args.min_base_qual, args.min_base_qual, local_fns[trimmed_rf_var]))
             elif args.read_trimmer == 'ptrimmer':
                 rf_file.write('pTrimmer -t single -a "%s" -f "%s" -d "%s" 1>&2\n' % (local_fns['primer_txt'], local_fn, local_fns[trimmed_rf_var]))
             else:
@@ -405,12 +411,13 @@ def main():
         rf_file.write('        samtools sort --threads %d -O bam -o "%s" "%s" 1>&2\n' % (args.threads, local_fns['trimmed_sorted_bam'], local_fns['trimmed_bam']))
         rf_file.write('\n')
 
-    # generate pile-up from sorted trimmed BAM
-    local_fns['pileup_txt'] = "%s/%s.pileup.txt" % (outdir, args.run_id)
-    rf_file.write('        # Generate pile-up from sorted trimmed BAM\n')
-    rf_file.write('        %s "Generating pile-up from sorted trimmed BAM" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "%s" "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['pileup_txt']))
-    rf_file.write('\n')
+    # generate pile-up from sorted trimmed BAM (if using something that needs it)
+    if args.variant_caller == 'ivar' or args.optional_pi_metric:
+        local_fns['pileup_txt'] = "%s/%s.pileup.txt" % (outdir, args.run_id)
+        rf_file.write('        # Generate pile-up from sorted trimmed BAM\n')
+        rf_file.write('        %s "Generating pile-up from sorted trimmed BAM" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
+        rf_file.write('        samtools mpileup -A -aa -d 0 -Q 0 --reference "%s" "%s" > "%s"\n' % (local_fns['ref_fas'], local_fns['trimmed_sorted_bam'], local_fns['pileup_txt']))
+        rf_file.write('\n')
 
     # call variants
     local_fns['variants_vcf'] = "%s/%s.variants.vcf" % (outdir, args.run_id)
@@ -436,7 +443,7 @@ def main():
     local_fns['depth_txt'] = "%s/%s.depth.txt" % (outdir, args.run_id)
     rf_file.write('        # Call depth from trimmed BAM\n')
     rf_file.write('        %s "Calling depth from trimmed BAM" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        samtools depth -J -d 0 -Q 0 -q 0 -aa "%s" > "%s"\n' % (local_fns['trimmed_sorted_bam'], local_fns['depth_txt']))
+    rf_file.write('        samtools depth -J -d 0 -Q 0 -q %d -aa "%s" > "%s"\n' % (args.min_base_qual, local_fns['trimmed_sorted_bam'], local_fns['depth_txt']))
     rf_file.write('\n')
 
     # find low-depth regions
@@ -450,7 +457,7 @@ def main():
     local_fns['consensus_fas'] = "%s/%s.consensus.fas" % (outdir, args.run_id)
     rf_file.write('        # Generate consensus sequence\n')
     rf_file.write('        %s "Generating consensus sequence" >> %s\n' % (DATE_COMMAND_BASH, local_fns['vireflow_log']))
-    rf_file.write('        alt_vars.py -i "%s" -o tmp.vcf -v %s\n' % (local_fns['variants_vcf'], args.variant_caller))
+    rf_file.write('        alt_vars.py -i "%s" -o tmp.vcf -v %s -m %s\n' % (local_fns['variants_vcf'], args.variant_caller, args.min_alt_freq))
     rf_file.write('        bgzip tmp.vcf\n')
     rf_file.write('        bcftools index tmp.vcf.gz\n')
     rf_file.write('        cat "%s" | bcftools consensus -m "%s" tmp.vcf.gz > "%s"\n' % (local_fns['ref_fas'], local_fns['low_depth_tsv'], local_fns['consensus_fas']))
