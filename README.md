@@ -38,7 +38,7 @@ While ViReflow itself only depends on Python 3, the pipelines it produces are [R
 ViReflow can be used as follows:
 
 ```
-usage: ViReflow.py -d DESTINATION -rf REFERENCE_FASTA -rg REFERENCE_GFF -p PRIMER_BED [OPTIONAL ARGS] FASTQ1 [FASTQ2 ...]
+usage: ViReflow.py [-o OUTPUT_RF] -d DESTINATION -rf REFERENCE_FASTA -rg REFERENCE_GFF -p PRIMER_BED [OPTIONAL ARGS] FASTQ1 [FASTQ2 ...]
 ```
 
 For extensive details about each command line argument, see the [Command Line Argument Descriptions](../../wiki/Command-Line-Argument-Descriptions) section of the ViReflow wiki.
