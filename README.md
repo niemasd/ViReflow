@@ -34,11 +34,11 @@ sudo mv ViReflow.py /usr/local/bin/ViReflow.py # optional step to install global
 
 While ViReflow itself only depends on Python 3, the pipelines it produces are [Reflow](https://github.com/grailbio/reflow) files that run on AWS. Thus, in order to run the pipelines ViReflow produces, one must first [install Reflow](../../wiki/Installing-Reflow).
 
-## Usage (TODO NEED TO UPDATE, OUT OF DATE)
+## Usage
 ViReflow can be used as follows:
 
 ```
-usage: ViReflow.py TODO UPDATE
+usage: ViReflow.py -d DESTINATION -rf REFERENCE_FASTA -rg REFERENCE_GFF -p PRIMER_BED [OPTIONAL ARGS] FASTQ1 [FASTQ2 ...]
 ```
 
 For extensive details about each command line argument, see the [Command Line Argument Descriptions](../../wiki/Command-Line-Argument-Descriptions) section of the ViReflow wiki.
@@ -47,7 +47,13 @@ For extensive details about each command line argument, see the [Command Line Ar
 We have provided [demo files](demo), and ViReflow can be executed as follows:
 
 ```bash
-TODO UPDATE
+ViReflow.py -o demo.rf                                                                          `# output Reflow run file` \
+            -d s3://my-s3-folder/vireflow-demo                                                  `# output S3 folder` \
+            -rf https://github.com/niemasd/ViReflow/raw/main/demo/NC_045512.2.fas               `# reference genome (FASTA)` \
+            -rg https://github.com/niemasd/ViReflow/raw/main/demo/NC_045512.2.gff3              `# reference genome annotation (GFF3)` \
+            -p https://github.com/niemasd/ViReflow/raw/main/demo/sarscov2_v2_primers_swift.bed  `# primer coordinates file (BED)` \
+            https://github.com/niemasd/ViReflow/raw/main/demo/test_R1.fastq                     `# FASTQ 1` \
+            https://github.com/niemasd/ViReflow/raw/main/demo/test_R2.fastq                     `# FASTQ 2`
 ```
 
 This will result in the creation of a file called `demo.rf`, which is the Reflow workflow file. Assuming Reflow is properly installed and configured, the workflow can now be run as follows:
