@@ -92,3 +92,10 @@ Now, you can simply run Reflow on the newly-created `batch_samples.rf`, and it w
 ```bash
 reflow run batch_samples.rf
 ```
+
+# Citing ViReflow
+If you use ViReflow in your work, please cite:
+
+> Moshiri N, Fisch KM, Birmingham A, DeHoff P, Yeo GW, Jepsen K, Laurent LC, Knight R (2022). "The ViReflow pipeline enables user friendly large scale viral consensus genome reconstruction." *Scientific Reports*. 12:5077. [doi:10.1038/s41598-022-09035-w](https://doi.org/10.1038/s41598-022-09035-w)
+
+Please also cite the mapper, trimmer, variant caller, and optional analysis tool(s) you used in your ViReflow run(s).
