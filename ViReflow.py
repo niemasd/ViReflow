@@ -14,17 +14,17 @@ import argparse
 import sys
 
 # useful constants
-VERSION = '1.0.19'
+VERSION = '1.0.20'
 RELEASES_URL = 'https://api.github.com/repos/niemasd/ViReflow/tags'
 RUN_ID_ALPHABET = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.')
 READ_TRIMMERS = {
     'reads': {
-        'fastq': {'fastp', 'prinseq', 'ptrimmer'}, # trimmers that work on raw reads (FASTQ)
-        'bam':   {'ivar'},                         # trimmers that work on mapped reads (BAM)
+        'fastq': {'fastp', 'none', 'prinseq', 'ptrimmer'}, # trimmers that work on raw reads (FASTQ)
+        'bam':   {'ivar'},                                 # trimmers that work on mapped reads (BAM)
     },
     'primers': {
-        'bed':   {'ivar', 'ptrimmer'},             # trimmers that use BED primers
-        'fasta': {'fastp'},                        # trimmers that use FASTA primers
+        'bed':   {'ivar', 'ptrimmer'},                     # trimmers that use BED primers
+        'fasta': {'fastp'},                                # trimmers that use FASTA primers
     }
 }
 READ_TRIMMERS_ALL = {k for i in READ_TRIMMERS for j in READ_TRIMMERS[i] for k in READ_TRIMMERS[i][j]}
@@ -173,7 +173,7 @@ def parse_args():
 
     # check read trimmer selection is valid
     args.read_trimmer = args.read_trimmer.lower()
-    if args.read_trimmer not in READ_TRIMMERS['reads']['fastq'] and args.read_trimmer not in READ_TRIMMERS['reads']['bam']:
+    if args.read_trimmer not in READ_TRIMMERS_ALL:
         stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer); exit(1)
 
     # check variant caller selection is valid
@@ -312,27 +312,31 @@ def main():
 
     # trim unmapped reads (if using FASTQ trimmer)
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
-        rf_file.write('        # Trim reads using %s\n' % args.read_trimmer)
-        rf_file.write('        %s "Trimming reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_trimmer, local_fns['vireflow_log']))
+        if args.read_trimmer != 'none':
+            rf_file.write('        # Trim reads using %s\n' % args.read_trimmer)
+            rf_file.write('        %s "Trimming reads using %s" >> %s\n' % (DATE_COMMAND_BASH, args.read_trimmer, local_fns['vireflow_log']))
         for rf_var, fq_fn, p in input_files:
             local_fn = '%s/%s' % (outdir, fq_fn)
             if not rf_var.startswith('fq'):
                 continue
             trimmed_rf_var = 'trimmed_%s' % rf_var
-            local_fns[trimmed_rf_var] = "%s/%s.%s.trimmed.fastq" % (outdir, args.run_id, rf_var)
-            rf_file.write('        ')
-            if args.read_trimmer == 'fastp':
-                rf_file.write('fastp --thread %d --adapter_fasta "%s" -i "%s" -o "%s" 1>&2\n' % (args.threads, local_fns['primer_fas'], local_fn, local_fns[trimmed_rf_var]))
-            elif args.read_trimmer == 'prinseq':
-                rf_file.write('prinseq-lite.pl -fastq "%s" -ns_max_n 4 -min_qual_mean %d -trim_qual_left %d -trim_qual_right %d -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "%s"\n' % (local_fn, args.min_base_qual, args.min_base_qual, args.min_base_qual, local_fns[trimmed_rf_var]))
-            elif args.read_trimmer == 'ptrimmer':
-                rf_file.write('pTrimmer -t single -a "%s" -f "%s" -d "%s" 1>&2\n' % (local_fns['primer_txt'], local_fn, local_fns[trimmed_rf_var]))
+            if args.read_trimmer == 'none':
+                local_fns[trimmed_rf_var] = local_fn
             else:
-                stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
-                if args.output != 'stdout':
-                    rf_file.close(); remove(args.output)
-                exit(1)
-        rf_file.write('\n')
+                local_fns[trimmed_rf_var] = "%s/%s.%s.trimmed.fastq" % (outdir, args.run_id, rf_var)
+                rf_file.write('        ')
+                if args.read_trimmer == 'fastp':
+                    rf_file.write('fastp --thread %d --adapter_fasta "%s" -i "%s" -o "%s" 1>&2\n' % (args.threads, local_fns['primer_fas'], local_fn, local_fns[trimmed_rf_var]))
+                elif args.read_trimmer == 'prinseq':
+                    rf_file.write('prinseq-lite.pl -fastq "%s" -ns_max_n 4 -min_qual_mean %d -trim_qual_left %d -trim_qual_right %d -trim_qual_window 10 -out_format 3 -out_good stdout -out_bad null -min_len 0 > "%s"\n' % (local_fn, args.min_base_qual, args.min_base_qual, args.min_base_qual, local_fns[trimmed_rf_var]))
+                elif args.read_trimmer == 'ptrimmer':
+                    rf_file.write('pTrimmer -t single -a "%s" -f "%s" -d "%s" 1>&2\n' % (local_fns['primer_txt'], local_fn, local_fns[trimmed_rf_var]))
+                else:
+                    stderr.write("Invalid read trimmer: %s\n" % args.read_trimmer)
+                    if args.output != 'stdout':
+                        rf_file.close(); remove(args.output)
+                    exit(1)
+                rf_file.write('\n')
 
     # organize FASTQ filenames to map
     if args.read_trimmer in READ_TRIMMERS['reads']['fastq']:
